@@ -66,6 +66,21 @@ class PXPage {
 		if ( substr( $page->mURL, 0, 4 ) !== 'http' ) {
 			return null;
 		}
+		//support for multiple content slots
+		if ( property_exists( $packagePageData, 'slots' ) ) {
+			$page->slots = [];
+			foreach ($packagePageData->slots as $slotName => $slot) {
+				$page->slots[$slotName] = new stdClass();
+				if ( property_exists( $slot, 'url' ) ) {
+					$page->slots[$slotName]->mURL = $slot->url;
+				} elseif ( property_exists( $slot, 'urlPath' ) ) {
+					$page->slots[$slotName]->mURL = $baseURL . $slot->url;
+				}
+				if ( substr( $page->slots[$slotName]->mURL, 0, 4 ) !== 'http' ) {
+					unset($page->slots[$slotName]);
+				}
+			}
+		}
 		if ( $page->mNamespace == NS_FILE ) {
 			$page->mLink = Html::element( 'a', [ 'href' => $page->mFileURL ], $pageFullName ) . ' (' .
 				Html::element( 'a', [ 'href' => $page->mURL ], 'text contents' ) . ')';
@@ -176,6 +191,9 @@ class PXPage {
 		];
 		if ( $this->mNamespace == NS_FILE ) {
 			$params['file_url'] = $this->mFileURL;
+		}
+		if ( property_exists($this, 'slots' ) ) {
+			$params['slots'] = $this->slots;
 		}
 		$jobs[] = new PXCreatePageJob( $this->mLocalTitle, $params );
 		if ( method_exists( MediaWikiServices::class, 'getJobQueueGroup' ) ) {

@@ -42,8 +42,6 @@ class PXCreatePageJob extends Job {
 			return false;
 		}
 
-		$pageText = PXUtils::getWebPageContents( $this->params['page_url'] );
-		$newContent = ContentHandler::makeContent( $pageText, $this->title );
 		$userID = $this->params['user_id'];
 		if ( class_exists( 'MediaWiki\User\UserFactory' ) ) {
 			// MW 1.35+
@@ -53,11 +51,41 @@ class PXCreatePageJob extends Job {
 		} else {
 			$user = User::newFromId( (int)$userID );
 		}
+
+		$updater = $wikiPage->newPageUpdater( $user );
+
+		if ( array_key_exists( 'page_url', $this->params ) ) {
+			$pageText = PXUtils::getWebPageContents( $this->params['page_url'] );
+			$newContent = ContentHandler::makeContent( $pageText, $this->title );
+			$updater->setContent( MediaWiki\Revision\SlotRecord::MAIN, $newContent );
+		}
+
+		if ( array_key_exists( 'slots', $this->params ) ) {
+			$oldRevisionRecord = $wikiPage->getRevisionRecord();
+            $slotRoleRegistry = MediaWikiServices::getInstance()->getSlotRoleRegistry();
+
+			foreach ($this->params['slots'] as $slotName => $slot) {
+				if ( $oldRevisionRecord !== null && $oldRevisionRecord->hasSlot( $slotName ) ) {
+					$modelId = $oldRevisionRecord
+						->getSlot( $slotName )
+						->getContent()
+						->getContentHandler()
+						->getModelID();
+				} else {
+					$modelId = $slotRoleRegistry
+						->getRoleHandler( $slotName )
+						->getDefaultModel( $this->title );
+				}
+
+				$slotText = PXUtils::getWebPageContents( $slot->mURL );
+				$newSlotContent = ContentHandler::makeContent( $slotText, $this->title, $modelId );
+				$updater->setContent( $slotName, $newSlotContent );
+			}
+		}
+
 		$editSummary = $this->params['edit_summary'];
 		$flags = 0;
 
-		$updater = $wikiPage->newPageUpdater( $user );
-		$updater->setContent( MediaWiki\Revision\SlotRecord::MAIN, $newContent );
 		$updater->saveRevision( CommentStoreComment::newUnsavedComment( $editSummary ), $flags );
 
 		// If this is a template, and Cargo is installed, tell Cargo
