@@ -31,8 +31,14 @@ class PXPage {
 			// NS_MAIN is the default.
 			$page->mNamespaceConstant = 'NS_MAIN';
 		}
-		if ( defined( $page->mNamespaceConstant ) ) {
+		if ( is_int( $page->mNamespaceConstant ) ) {
+			// namespace id already provided
+			$page->mNamespace = $page->mNamespaceConstant;
+		} elseif ( defined( $page->mNamespaceConstant ) ) {
+			// get the namespace id from the provided namespace constant
 			$page->mNamespace = constant( $page->mNamespaceConstant );
+		}
+		if ( $page->mNamespace ) {
 			$page->mLocalTitle = Title::makeTitleSafe( $page->mNamespace, $page->mName );
 			if ( $page->mLocalTitle == null ) {
 				return null;
