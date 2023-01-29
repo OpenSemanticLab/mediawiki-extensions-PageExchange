@@ -74,7 +74,7 @@ class PXPage {
 				if ( property_exists( $slot, 'url' ) ) {
 					$page->slots[$slotName]->mURL = $slot->url;
 				} elseif ( property_exists( $slot, 'urlPath' ) ) {
-					$page->slots[$slotName]->mURL = $baseURL . $slot->url;
+					$page->slots[$slotName]->mURL = $baseURL . $slot->urlPath;
 				}
 				if ( substr( $page->slots[$slotName]->mURL, 0, 4 ) !== 'http' ) {
 					unset($page->slots[$slotName]);
