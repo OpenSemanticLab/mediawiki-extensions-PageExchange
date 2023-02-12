@@ -24,6 +24,7 @@ class PXPage {
 
 	public static function newFromData( $packagePageData, $baseURL ) {
 		$page = new PXPage();
+		$page->mNamespace = null;
 		$page->mName = $packagePageData->name;
 		if ( property_exists( $packagePageData, 'namespace' ) ) {
 			$page->mNamespaceConstant = $packagePageData->namespace;
@@ -38,7 +39,7 @@ class PXPage {
 			// get the namespace id from the provided namespace constant
 			$page->mNamespace = constant( $page->mNamespaceConstant );
 		}
-		if ( $page->mNamespace ) {
+		if ( $page->mNamespace !== null ) { # check if defined, including 0 for NS_MAIN
 			$page->mLocalTitle = Title::makeTitleSafe( $page->mNamespace, $page->mName );
 			if ( $page->mLocalTitle == null ) {
 				return null;
