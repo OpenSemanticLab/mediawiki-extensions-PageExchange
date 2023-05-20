@@ -39,13 +39,20 @@ class PXUtils {
 	}
 
 	public static function getWebPageContents( $url ) {
+		$url .= '?ts=' . time();
+		#echo("FETCH: " . $url . "\n");
 		// Use cURL, if it's installed - it seems to have a better
 		// chance of working.
-		if ( function_exists( 'curl_init' ) ) {
+		if ( false ) { #function_exists( 'curl_init' ) ) {
 			$ch = curl_init();
 			curl_setopt( $ch, CURLOPT_RETURNTRANSFER, 1 );
 			curl_setopt( $ch, CURLOPT_URL, $url );
 			curl_setopt( $ch, CURLOPT_USERAGENT, 'request' );
+			$headers = array(
+				'Cache-Control: no-cache, no-store'
+			);
+			curl_setopt( $ch, CURLOPT_HTTPHEADER, $headers );
+			curl_setopt( $ch, CURLOPT_FRESH_CONNECT, 1); // don't use a cached version of the url 
 			$contents = curl_exec( $ch );
 			$httpCode = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
 			if ( $httpCode !== 200 ) {
@@ -53,13 +60,14 @@ class PXUtils {
 				// It may contain useful information.
 				return '';
 			}
+			#echo("curl: " . $contents . "\n");
 			return $contents;
 		}
 
 		AtEase::suppressWarnings();
 		$contents = file_get_contents( $url );
 		AtEase::restoreWarnings();
-
+		#echo("file_get_contents: " . $contents . "\n");
 		return $contents;
 	}
 
@@ -76,6 +84,7 @@ class PXUtils {
 			if ( in_array( $firstChar, [ ';', '#', '/' ] ) ) {
 				continue;
 			}
+			#echo($fileDirectoryLine);
 			$packageFiles[] = $fileDirectoryLine;
 		}
 		return $packageFiles;

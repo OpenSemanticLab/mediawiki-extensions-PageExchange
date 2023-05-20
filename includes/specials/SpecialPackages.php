@@ -91,6 +91,7 @@ class SpecialPackages extends SpecialPage {
 		foreach ( $fileDirectories as $dirNum => $fileDirectoryURL ) {
 			$curPackageFiles = PXUtils::readFileDirectory( $fileDirectoryURL );
 			foreach ( $curPackageFiles as $fileNum => $packageURL ) {
+				#echo($packageURL);
 				try {
 					$packageFiles[] = PXPackageFile::init( $packageURL, $dirNum + 1, $fileNum + 1, $this->mInstalledExtensions, $installedPackageIDs );
 				} catch ( MWException $e ) {
@@ -149,6 +150,7 @@ class SpecialPackages extends SpecialPage {
 	private function getRemotePackage( $directoryNum, $fileNum, $packageName ) {
 		if ( $directoryNum == null ) {
 			$packageFiles = $this->getConfig()->get( 'PageExchangePackageFiles' );
+			echo(json_encode($packageFiles));
 		} else {
 			$fileDirectories = $this->getConfig()->get( 'PageExchangeFileDirectories' );
 			if ( count( $fileDirectories ) < $directoryNum ) {

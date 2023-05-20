@@ -13,6 +13,7 @@ class PXRemotePackage extends PXPackage {
 	private $mMissingExtensions = [];
 	private $mMissingPackages = [];
 	private $mUninstallableReasons = [];
+	private $mUninstallablePages = [];
 	private $mIsMatch = true;
 
 	public static function newFromData( $directoryNum, $fileNum, $fileData, $packageName, $packageData, $installedExtensions, $installedPackages, $user ) {
@@ -52,7 +53,9 @@ class PXRemotePackage extends PXPackage {
 				continue;
 			}
 			if ( $page->getLocalTitle() == null && !in_array( 'bad-namespace', $this->mUninstallableReasons ) ) {
+				echo $page->getName();
 				$this->mUninstallableReasons[] = 'bad-namespace';
+				$this->mUninstallablePages[] = $page;
 			}
 			if ( $page->isJavaScript() && !$userCanEditJS ) {
 				$this->mUninstallableReasons[] = 'cannot-edit-js';
@@ -198,6 +201,11 @@ END;
 			} elseif ( $reason == 'cannot-edit-css' ) {
 				$text .= '<li>You do not have permission to modify CSS pages</li>';
 			}
+		}
+		$text .= '</ul>';
+		$text .= "\n<ul>";
+		foreach ( $this->mUninstallablePages as $page ) {
+				$text .= '<li>' . $page->getNamespace() . ':' . $page->getName() . '</li>';
 		}
 		$text .= '</ul>';
 		return $text;

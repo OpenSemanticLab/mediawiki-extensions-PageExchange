@@ -215,6 +215,7 @@ class PXPage {
 	 * Delete a wiki page, and its associated file, if there is one.
 	 */
 	public function deleteWikiPage( $user, $packageName, $isUninstall ) {
+		if (!$this->mLocalTitle) return;
 		if ( method_exists( MediaWikiServices::class, 'getWikiPageFactory' ) ) {
 			// MW 1.36+
 			$wikiPage = MediaWikiServices::getInstance()->getWikiPageFactory()->newFromTitle( $this->mLocalTitle );
