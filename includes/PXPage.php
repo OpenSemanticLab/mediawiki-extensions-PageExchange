@@ -235,7 +235,12 @@ class PXPage {
 		if ( $this->mNamespace == NS_FILE ) {
 			$mwServices = MediaWikiServices::getInstance();
 			$file = $mwServices->getRepoGroup()->getLocalRepo()->newFile( $this->mLocalTitle );
-			$file->delete( $editSummary );
+			
+			if ( version_compare( MW_VERSION, '1.35', '<' ) ) {
+				$file->delete( $editSummary );
+			} else {
+				$file->deleteFile( $editSummary );
+			}
 		}
 	}
 
