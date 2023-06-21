@@ -239,7 +239,7 @@ class PXPage {
 			if ( version_compare( MW_VERSION, '1.35', '<' ) ) {
 				$file->delete( $editSummary );
 			} else {
-				$file->deleteFile( $editSummary );
+				$file->deleteFile( $editSummary, $user );
 			}
 		}
 	}
