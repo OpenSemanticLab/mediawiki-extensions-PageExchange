@@ -84,6 +84,9 @@
 		},
 		"PageExchangeFileDirectories": {
 			"value": []
+		},
+		"PageExchangeProtectInstalledPages": {
+			"value": "sysop"
 		}
 	},
 	"APIModules": {

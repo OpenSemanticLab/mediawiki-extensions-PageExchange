@@ -88,6 +88,50 @@ class PXCreatePageJob extends Job {
 
 		$updater->saveRevision( CommentStoreComment::newUnsavedComment( $editSummary ), $flags );
 
+		$mediaWikiConfig = MediaWikiServices::getInstance()->getMainConfig();
+		$protectPages = $mediaWikiConfig->get( 'PageExchangeProtectInstalledPages' );
+		// check if protectPages us a non-empty string (default: 'sysop')
+		if ( is_string( $protectPages ) && trim( $protectPages ) !== '' ) {
+			// Set page protection to the specified level
+			$cascade = true;
+			// Update protection
+			$protectionStatus = $wikiPage->doUpdateRestrictions(
+				// $limit: Set of restriction keys
+				[ 'edit' => $protectPages, 'move' => $protectPages ],
+				// $limit: Set of restriction keys
+				[],
+				// $cascade: Also protect 
+				$cascade,
+				"Protected as read-only import via Page Exchange extension",
+				$user
+			);
+
+			if ( !$protectionStatus->isOK() ) {
+				$this->error = 'pageExchangeCreatePage: Failed to set page protection: ' . 
+					$protectionStatus->getWikiText();
+			}
+		}
+		else {
+			// unprotect page
+			$cascade = true;
+			// Update protection
+			$protectionStatus = $wikiPage->doUpdateRestrictions(
+				// $limit: Set of restriction keys
+				[ 'edit' => '', 'move' => '' ],
+				// $limit: Set of restriction keys
+				[],
+				// $cascade: Also protect 
+				$cascade,
+				"Un-Protect during page import/update via Page Exchange extension",
+				$user
+			);
+
+			if ( !$protectionStatus->isOK() ) {
+				$this->error = 'pageExchangeCreatePage: Failed to unset page protection: ' . 
+					$protectionStatus->getWikiText();
+			}			
+		}
+
 		// If this is a template, and Cargo is installed, tell Cargo
 		// to automatically generate the table declared in this
 		// template, if there is one.
