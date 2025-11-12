@@ -360,7 +360,7 @@ END;
 	}
 
 	public function install( $user ) {
-		$dbw = wfGetDB( DB_MASTER );
+		$dbw = wfGetDB( DB_PRIMARY );
 
 		$maxPackageID = $dbw->selectField( 'px_packages', 'MAX(pxp_id)' );
 		$packageID = $maxPackageID + 1;
