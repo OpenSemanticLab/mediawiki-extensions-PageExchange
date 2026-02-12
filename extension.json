@@ -87,6 +87,9 @@
 		},
 		"PageExchangeProtectInstalledPages": {
 			"value": "sysop"
+		},
+		"PageExchangeGitHubAccessToken": {
+			"value": {}
 		}
 	},
 	"APIModules": {

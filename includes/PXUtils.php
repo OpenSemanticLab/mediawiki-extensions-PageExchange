@@ -1,4 +1,5 @@
 <?php
+use MediaWiki\MediaWikiServices;
 use Wikimedia\AtEase\AtEase;
 
 class PXUtils {
@@ -39,6 +40,8 @@ class PXUtils {
 	}
 
 	public static function getWebPageContents( $url ) {
+		$gitHubToken = self::getGitHubToken( $url );
+
 		// Use cURL, if it's installed - it seems to have a better
 		// chance of working.
 		if ( function_exists( 'curl_init' ) ) {
@@ -46,6 +49,11 @@ class PXUtils {
 			curl_setopt( $ch, CURLOPT_RETURNTRANSFER, 1 );
 			curl_setopt( $ch, CURLOPT_URL, $url );
 			curl_setopt( $ch, CURLOPT_USERAGENT, 'request' );
+			if ( $gitHubToken !== '' ) {
+				curl_setopt( $ch, CURLOPT_HTTPHEADER, [
+					'Authorization: token ' . $gitHubToken
+				] );
+			}
 			$contents = curl_exec( $ch );
 			$httpCode = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
 			if ( $httpCode !== 200 ) {
@@ -56,11 +64,77 @@ class PXUtils {
 			return $contents;
 		}
 
+		// Fallback: file_get_contents.
+		$context = null;
+		if ( $gitHubToken !== '' ) {
+			$context = stream_context_create( [
+				'http' => [
+					'header' => "Authorization: token " . $gitHubToken . "\r\n" .
+						"User-Agent: request\r\n"
+				]
+			] );
+		}
+
 		AtEase::suppressWarnings();
-		$contents = file_get_contents( $url );
+		if ( $context !== null ) {
+			$contents = file_get_contents( $url, false, $context );
+		} else {
+			$contents = file_get_contents( $url );
+		}
 		AtEase::restoreWarnings();
 
 		return $contents;
+	}
+
+	private static function getGitHubToken( $url ) {
+		$host = parse_url( $url, PHP_URL_HOST );
+		if ( $host === false || $host === null ) {
+			return '';
+		}
+		$host = strtolower( $host );
+		$gitHubHosts = [ 'github.com', 'api.github.com', 'raw.githubusercontent.com' ];
+		if ( !in_array( $host, $gitHubHosts ) ) {
+			return '';
+		}
+
+		$path = parse_url( $url, PHP_URL_PATH );
+		if ( $path === false || $path === null ) {
+			return '';
+		}
+		$segments = explode( '/', trim( $path, '/' ) );
+
+		// api.github.com paths start with /repos/{org}/{repo}/...
+		if ( $host === 'api.github.com' ) {
+			if ( count( $segments ) < 3 || $segments[0] !== 'repos' ) {
+				return '';
+			}
+			$org = $segments[1];
+			$repo = $segments[2];
+		} else {
+			// github.com and raw.githubusercontent.com: /{org}/{repo}/...
+			if ( count( $segments ) < 2 ) {
+				return '';
+			}
+			$org = $segments[0];
+			$repo = $segments[1];
+		}
+
+		$config = MediaWikiServices::getInstance()->getMainConfig();
+		$tokens = $config->get( 'PageExchangeGitHubAccessToken' );
+		if ( !is_array( $tokens ) || empty( $tokens ) ) {
+			return '';
+		}
+
+		// Repo-specific key takes priority over org-only key.
+		$repoKey = $org . '/' . $repo;
+		if ( isset( $tokens[$repoKey] ) ) {
+			return $tokens[$repoKey];
+		}
+		if ( isset( $tokens[$org] ) ) {
+			return $tokens[$org];
+		}
+
+		return '';
 	}
 
 	public static function readFileDirectory( $fileDirectoryURL ) {
