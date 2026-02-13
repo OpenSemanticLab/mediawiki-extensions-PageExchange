@@ -97,9 +97,11 @@ abstract class PXPackage {
 			return $value;
 		}
 		if ( is_array( $value ) ) {
-			return array_map( 'htmlentities', $value );
+			return array_map( function( $v ) {
+				return htmlspecialchars( $v, ENT_QUOTES, 'UTF-8', false );
+			}, $value );
 		}
-		return htmlentities( $value );
+		return htmlspecialchars( $value, ENT_QUOTES, 'UTF-8', false );
 	}
 
 	public function getName() {

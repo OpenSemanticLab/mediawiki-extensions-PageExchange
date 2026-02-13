@@ -92,6 +92,9 @@ class PXInstalledPackage extends PXPackage {
 			$text .= $localValue;
 		}
 		if ( $remotePackage !== null && $remoteValue !== $localValue ) {
+			if ( is_array( $remoteValue ) ) {
+				$remoteValue = implode( ', ', $remoteValue );
+			}
 			$latestValueText = wfMessage( 'pageexchange-latestvalue' )->rawParams( "<em>$remoteValue</em>" )->parse();
 			$text .= " <span class=\"error\">$latestValueText</span> ";
 		}

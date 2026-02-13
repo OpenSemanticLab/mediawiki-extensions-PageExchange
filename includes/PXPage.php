@@ -19,6 +19,7 @@ class PXPage {
 	private $mFileURL;
 	private $mLocalTitle;
 	private $mLocalTitleExists;
+	private $mLabel;
 	private $mLink;
 	private $mLocalLink;
 
@@ -26,6 +27,9 @@ class PXPage {
 		$page = new PXPage();
 		$page->mNamespace = null;
 		$page->mName = $packagePageData->name;
+		if ( property_exists( $packagePageData, 'label' ) ) {
+			$page->mLabel = $packagePageData->label;
+		}
 		if ( property_exists( $packagePageData, 'namespace' ) ) {
 			$page->mNamespaceConstant = $packagePageData->namespace;
 		} else {
@@ -88,11 +92,12 @@ class PXPage {
 				}
 			}
 		}
+		$displayName = $page->mLabel ?? $pageFullName;
 		if ( $page->mNamespace == NS_FILE ) {
-			$page->mLink = Html::element( 'a', [ 'href' => $page->mFileURL ], $pageFullName ) . ' (' .
+			$page->mLink = Html::element( 'a', [ 'href' => $page->mFileURL ], $displayName ) . ' (' .
 				Html::element( 'a', [ 'href' => $page->mURL ], 'text contents' ) . ')';
 		} else {
-			$page->mLink = Html::element( 'a', [ 'href' => $page->mURL ], $pageFullName );
+			$page->mLink = Html::element( 'a', [ 'href' => $page->mURL ], $displayName );
 		}
 
 		return $page;

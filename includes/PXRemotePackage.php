@@ -286,7 +286,7 @@ END;
 		foreach ( $this->mPages as $page ) {
 			$pagesString .= "<li>" . $page->getLink();
 			$remoteContents = $page->getRemoteContents();
-			if ( $remoteContents == null ) {
+			if ( $remoteContents == null && !property_exists( $page, 'slots' ) ) {
 				$pagesString .= ' - <span class="error">' . wfMessage( 'pageexchange-nocontentsremote' )->parse() . '</span>';
 			} elseif ( !$page->localTitleExists() ) {
 				// Do nothing.
