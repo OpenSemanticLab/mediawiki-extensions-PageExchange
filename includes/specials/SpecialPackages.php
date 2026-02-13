@@ -88,9 +88,64 @@ class SpecialPackages extends SpecialPage {
 		}
 
 		$fileDirectories = $this->getConfig()->get( 'PageExchangeFileDirectories' );
+		$packageFileURLs = $this->getConfig()->get( 'PageExchangePackageFiles' );
+
+		// === Phase 1: Batch-fetch directory listings in parallel ===
+		if ( !empty( $fileDirectories ) ) {
+			PXUtils::getWebPageContentsBatch( $fileDirectories );
+		}
+
+		// Parse directory listings (cache hit) and collect all package file URLs.
+		$dirPackageFiles = [];
+		$allPackageFileURLs = [];
 		foreach ( $fileDirectories as $dirNum => $fileDirectoryURL ) {
 			$curPackageFiles = PXUtils::readFileDirectory( $fileDirectoryURL );
-			foreach ( $curPackageFiles as $fileNum => $packageURL ) {
+			$dirPackageFiles[$dirNum] = $curPackageFiles;
+			$allPackageFileURLs = array_merge( $allPackageFileURLs, $curPackageFiles );
+		}
+		$allPackageFileURLs = array_merge( $allPackageFileURLs, $packageFileURLs );
+
+		// === Phase 2: Batch-fetch all package JSON files in parallel ===
+		if ( !empty( $allPackageFileURLs ) ) {
+			PXUtils::getWebPageContentsBatch( $allPackageFileURLs );
+		}
+
+		// === Phase 3: Pre-scan for GitHub tree API URLs and batch-fetch ===
+		// Fetch both 'main' and 'master' branch trees in parallel.
+		// Only the valid branch returns content; empty responses are not cached.
+		// addToPagesFromGitHubData() will hit cache for whichever branch exists.
+		$gitHubTreeURLs = [];
+		foreach ( $allPackageFileURLs as $url ) {
+			$json = PXUtils::getWebPageContents( $url );
+			if ( $json === null || $json === '' ) {
+				continue;
+			}
+			$data = json_decode( $json );
+			if ( $data === null || !property_exists( $data, 'packages' ) ) {
+				continue;
+			}
+			foreach ( $data->packages as $pkgData ) {
+				if ( !property_exists( $pkgData, 'directoryStructure' ) ) {
+					continue;
+				}
+				$ds = $pkgData->directoryStructure;
+				if ( !property_exists( $ds, 'service' ) || $ds->service !== 'GitHub' ) {
+					continue;
+				}
+				if ( !property_exists( $ds, 'accountName' ) || !property_exists( $ds, 'repositoryName' ) ) {
+					continue;
+				}
+				$gitHubTreeURLs[] = "https://api.github.com/repos/{$ds->accountName}/{$ds->repositoryName}/git/trees/main?recursive=1";
+				$gitHubTreeURLs[] = "https://api.github.com/repos/{$ds->accountName}/{$ds->repositoryName}/git/trees/master?recursive=1";
+			}
+		}
+		if ( !empty( $gitHubTreeURLs ) ) {
+			PXUtils::getWebPageContentsBatch( $gitHubTreeURLs );
+		}
+
+		// === Now process as before — all fetches hit cache ===
+		foreach ( $fileDirectories as $dirNum => $fileDirectoryURL ) {
+			foreach ( $dirPackageFiles[$dirNum] as $fileNum => $packageURL ) {
 				try {
 					$packageFiles[] = PXPackageFile::init( $packageURL, $dirNum + 1, $fileNum + 1, $this->mInstalledExtensions, $installedPackageIDs );
 				} catch ( MWException $e ) {
@@ -100,7 +155,6 @@ class SpecialPackages extends SpecialPage {
 			}
 		}
 
-		$packageFileURLs = $this->getConfig()->get( 'PageExchangePackageFiles' );
 		foreach ( $packageFileURLs as $i => $url ) {
 			try {
 				$packageFiles[] = PXPackageFile::init( $url, null, $i + 1, $this->mInstalledExtensions, $installedPackageIDs );
