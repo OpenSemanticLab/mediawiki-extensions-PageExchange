@@ -390,11 +390,53 @@ END;
 		];
 		$dbw->insert( 'px_packages', $installValues );
 
+		// Pre-populate cache with all page contents before creating jobs.
+		$this->prefetchPageContents();
+
 		foreach ( $this->mPages as $page ) {
 			$page->createOrUpdateWikiPage( $user, $this->mName, true );
 		}
 
 		$this->logAction( 'installpackage', $user );
+	}
+
+	public function prefetchPageContents() {
+		// For GitHub-based packages, download the entire repo as a single zip.
+		$gitHubInfo = $this->getGitHubRepoInfo();
+		if ( $gitHubInfo !== null ) {
+			PXUtils::downloadGitHubRepoContents(
+				$gitHubInfo['account'],
+				$gitHubInfo['repo'],
+				$gitHubInfo['branch']
+			);
+			return;
+		}
+
+		// For non-GitHub packages, fetch all page URLs in parallel.
+		$urls = [];
+		foreach ( $this->mPages as $page ) {
+			if ( $page === null ) {
+				continue;
+			}
+			$url = $page->getURL();
+			if ( $url !== null ) {
+				$urls[] = $url;
+			}
+			$fileURL = $page->getFileURL();
+			if ( $fileURL !== null ) {
+				$urls[] = $fileURL;
+			}
+			if ( property_exists( $page, 'slots' ) ) {
+				foreach ( $page->slots as $slot ) {
+					if ( $slot->mURL !== null ) {
+						$urls[] = $slot->mURL;
+					}
+				}
+			}
+		}
+		if ( !empty( $urls ) ) {
+			PXUtils::getWebPageContentsBatch( $urls );
+		}
 	}
 
 }

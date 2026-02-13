@@ -306,6 +306,9 @@ END;
 			$deletedPage->deleteWikiPage( $user, $this->mName, false );
 		}
 
+		// Pre-populate cache with all page contents before creating jobs.
+		$this->mAssociatedRemotePackage->prefetchPageContents();
+
 		foreach ( $this->mAssociatedRemotePackage->mPages as $page ) {
 			$page->createOrUpdateWikiPage( $user, $this->mName, false );
 		}

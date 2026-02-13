@@ -90,6 +90,9 @@
 		},
 		"PageExchangeGitHubAccessToken": {
 			"value": {}
+		},
+		"PageExchangeCacheTTL": {
+			"value": 3600
 		}
 	},
 	"APIModules": {

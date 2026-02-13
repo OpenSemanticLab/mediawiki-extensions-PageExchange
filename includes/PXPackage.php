@@ -26,6 +26,9 @@ abstract class PXPackage {
 	protected $mRequiredExtensions = [];
 	protected $mRequiredPackages = [];
 	protected $mUser;
+	protected $mGitHubAccount;
+	protected $mGitHubRepo;
+	protected $mGitHubBranch;
 
 	public function populateWithData( $fileData, $packageData ) {
 		$baseURL = self::getPackageField( 'baseURL', $fileData, $packageData );
@@ -259,6 +262,8 @@ END;
 		$accountName = $gitHubData->accountName;
 		$repositoryName = $gitHubData->repositoryName;
 		$namespaceSettings = $gitHubData->namespaceSettings;
+		$this->mGitHubAccount = $accountName;
+		$this->mGitHubRepo = $repositoryName;
 		$allGitHubPages = [];
 		$defaultBranch = 'main';
 		$gitHubAPIURL = "https://api.github.com/repos/$accountName/$repositoryName/git/trees/main?recursive=1";
@@ -272,6 +277,7 @@ END;
 		if ( $gitHubPagesJSON == '' ) {
 			throw new MWException( "No data found at https://github.com/$accountName/$repositoryName" );
 		}
+		$this->mGitHubBranch = $defaultBranch;
 		$gitHubPagesData = json_decode( $gitHubPagesJSON );
 		$gitHubPageNames = [];
 		foreach ( $gitHubPagesData->tree as $gitHubPageData ) {
@@ -315,6 +321,17 @@ END;
 				$this->mPages[] = PXPage::newFromData( $pageData, null );
 			}
 		}
+	}
+
+	public function getGitHubRepoInfo() {
+		if ( $this->mGitHubAccount === null || $this->mGitHubRepo === null ) {
+			return null;
+		}
+		return [
+			'account' => $this->mGitHubAccount,
+			'repo' => $this->mGitHubRepo,
+			'branch' => $this->mGitHubBranch ?? 'main'
+		];
 	}
 
 	abstract public function processPages();
