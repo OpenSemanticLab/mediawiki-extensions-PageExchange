@@ -66,6 +66,24 @@ class PXUtils {
 		return $contents;
 	}
 
+	public static function getCached( $url ) {
+		$config = MediaWikiServices::getInstance()->getMainConfig();
+		try {
+			$cacheTTL = $config->get( 'PageExchangeCacheTTL' );
+		} catch ( Exception $e ) {
+			$cacheTTL = 3600;
+		}
+		if ( $cacheTTL > 0 ) {
+			$cache = MediaWikiServices::getInstance()->getMainWANObjectCache();
+			$cacheKey = $cache->makeKey( 'pageexchange', 'url', md5( $url ) );
+			$cached = $cache->get( $cacheKey );
+			if ( $cached !== false ) {
+				return $cached;
+			}
+		}
+		return null;
+	}
+
 	public static function cacheContent( $url, $content ) {
 		$config = MediaWikiServices::getInstance()->getMainConfig();
 		try {
@@ -185,11 +203,25 @@ class PXUtils {
 			return $results;
 		}
 
+		// Check cache first — only fetch uncached URLs.
+		$uncachedUrls = [];
+		foreach ( $urls as $url ) {
+			$cached = self::getCached( $url );
+			if ( $cached !== null ) {
+				$results[$url] = $cached;
+			} else {
+				$uncachedUrls[] = $url;
+			}
+		}
+		if ( empty( $uncachedUrls ) ) {
+			return $results;
+		}
+
 		if ( function_exists( 'curl_multi_init' ) ) {
 			$multiHandle = curl_multi_init();
 			$handles = [];
 
-			foreach ( $urls as $url ) {
+			foreach ( $uncachedUrls as $url ) {
 				$ch = curl_init();
 				curl_setopt( $ch, CURLOPT_RETURNTRANSFER, 1 );
 				curl_setopt( $ch, CURLOPT_URL, $url );
@@ -229,7 +261,7 @@ class PXUtils {
 			curl_multi_close( $multiHandle );
 		} else {
 			// Fallback: sequential fetch.
-			foreach ( $urls as $url ) {
+			foreach ( $uncachedUrls as $url ) {
 				$content = self::fetchUrl( $url );
 				$results[$url] = $content;
 				if ( $content !== '' && $content !== false ) {

@@ -404,6 +404,26 @@ END;
 		// For GitHub-based packages, download the entire repo as a single zip.
 		$gitHubInfo = $this->getGitHubRepoInfo();
 		if ( $gitHubInfo !== null ) {
+			// Skip zip download if all content is already cached (e.g., from a previous install).
+			// Only check main URL AND slot URLs — detail page view only caches main URLs,
+			// so a cached slot URL proves a prior zip download covered everything.
+			if ( !empty( $this->mPages ) ) {
+				$firstPage = $this->mPages[0];
+				if ( $firstPage !== null && PXUtils::getCached( $firstPage->getURL() ) !== null ) {
+					$allCached = true;
+					if ( property_exists( $firstPage, 'slots' ) ) {
+						foreach ( $firstPage->slots as $slot ) {
+							if ( $slot->mURL !== null && PXUtils::getCached( $slot->mURL ) === null ) {
+								$allCached = false;
+								break;
+							}
+						}
+					}
+					if ( $allCached ) {
+						return;
+					}
+				}
+			}
 			PXUtils::downloadGitHubRepoContents(
 				$gitHubInfo['account'],
 				$gitHubInfo['repo'],

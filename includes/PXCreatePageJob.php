@@ -56,6 +56,10 @@ class PXCreatePageJob extends Job {
 
 		if ( array_key_exists( 'page_url', $this->params ) ) {
 			$pageText = PXUtils::getWebPageContents( $this->params['page_url'] );
+			if ( $pageText === '' || $pageText === false || $pageText === null ) {
+				wfLogWarning( 'PageExchange: empty content fetched for page "' .
+					$this->title->getPrefixedDBkey() . '" from ' . $this->params['page_url'] );
+			}
 			$newContent = ContentHandler::makeContent( $pageText, $this->title );
 			$updater->setContent( MediaWiki\Revision\SlotRecord::MAIN, $newContent );
 		}
@@ -78,6 +82,10 @@ class PXCreatePageJob extends Job {
 				}
 
 				$slotText = PXUtils::getWebPageContents( $slot->mURL );
+				if ( $slotText === '' || $slotText === false || $slotText === null ) {
+					wfLogWarning( 'PageExchange: empty slot "' . $slotName . '" fetched for page "' .
+						$this->title->getPrefixedDBkey() . '" from ' . $slot->mURL );
+				}
 				$newSlotContent = ContentHandler::makeContent( $slotText, $this->title, $modelId );
 				$updater->setContent( $slotName, $newSlotContent );
 			}

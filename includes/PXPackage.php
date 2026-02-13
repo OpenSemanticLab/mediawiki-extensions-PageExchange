@@ -334,6 +334,22 @@ END;
 		];
 	}
 
+	public function prefetchForDisplay() {
+		$urls = [];
+		foreach ( $this->mPages as $page ) {
+			if ( $page === null ) {
+				continue;
+			}
+			$url = $page->getURL();
+			if ( $url !== null ) {
+				$urls[] = $url;
+			}
+		}
+		if ( !empty( $urls ) ) {
+			PXUtils::getWebPageContentsBatch( $urls );
+		}
+	}
+
 	abstract public function processPages();
 
 	abstract public function getFullHTML();

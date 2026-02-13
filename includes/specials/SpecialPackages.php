@@ -44,6 +44,7 @@ class SpecialPackages extends SpecialPage {
 				$package->install( $user );
 				$text = $this->displaySuccessMessage( $this->msg( 'pageexchange-packageinstalled' )->parse() );
 			} else {
+				$package->prefetchForDisplay();
 				$text = $package->getFullHTML();
 			}
 		} elseif ( $packageName !== null ) {
@@ -70,6 +71,7 @@ class SpecialPackages extends SpecialPage {
 				$package->uninstall( $user, $deleteAll );
 				$text = $this->displaySuccessMessage( $this->msg( 'pageexchange-packageuninstalled' )->parse() );
 			} else {
+				$package->prefetchForDisplay();
 				$text = $package->getFullHTML();
 			}
 		} else {
