@@ -41,7 +41,11 @@ class PXUtils {
 
 	public static function getWebPageContents( $url ) {
 		$config = MediaWikiServices::getInstance()->getMainConfig();
-		$cacheTTL = $config->get( 'PageExchangeCacheTTL' );
+		try {
+			$cacheTTL = $config->get( 'PageExchangeCacheTTL' );
+		} catch ( Exception $e ) {
+			$cacheTTL = 3600;
+		}
 
 		if ( $cacheTTL > 0 ) {
 			$cache = MediaWikiServices::getInstance()->getMainWANObjectCache();
@@ -64,7 +68,11 @@ class PXUtils {
 
 	public static function cacheContent( $url, $content ) {
 		$config = MediaWikiServices::getInstance()->getMainConfig();
-		$cacheTTL = $config->get( 'PageExchangeCacheTTL' );
+		try {
+			$cacheTTL = $config->get( 'PageExchangeCacheTTL' );
+		} catch ( Exception $e ) {
+			$cacheTTL = 3600;
+		}
 		if ( $cacheTTL > 0 && $content !== '' && $content !== false ) {
 			$cache = MediaWikiServices::getInstance()->getMainWANObjectCache();
 			$cacheKey = $cache->makeKey( 'pageexchange', 'url', md5( $url ) );
@@ -267,7 +275,11 @@ class PXUtils {
 		}
 
 		$config = MediaWikiServices::getInstance()->getMainConfig();
-		$tokens = $config->get( 'PageExchangeGitHubAccessToken' );
+		try {
+			$tokens = $config->get( 'PageExchangeGitHubAccessToken' );
+		} catch ( Exception $e ) {
+			$tokens = [];
+		}
 		if ( !is_array( $tokens ) || empty( $tokens ) ) {
 			return '';
 		}
