@@ -103,34 +103,17 @@ END;
 		return count( $this->mUninstallableReasons ) > 0;
 	}
 
-	public function getCardBGColor() {
-		if ( $this->mIsMatch ) {
-			if ( $this->mPagesStatus == 'complete' ) {
-				// Possibly installed already
-				return [ 254, 246, 231 ];
-			} elseif ( $this->mPagesStatus == 'partial' ) {
-				return [ 255, 200, 200 ];
-			} else {
-				return [ 255, 255, 255 ];
-			}
-		} else {
-			return [ 248, 249, 250 ];
+	public function getCardStatusClass() {
+		if ( !$this->mIsMatch ) {
+			return 'pageExchangeCard--nonmatching';
 		}
-	}
-
-	public function getCardHeaderBGColor() {
-		if ( $this->mIsMatch ) {
-			if ( $this->mPagesStatus == 'complete' ) {
-				// Possibly installed already
-				return '#fc3';
-			} elseif ( $this->mPagesStatus == 'partial' ) {
-				return '#d33';
-			} else {
-				return '#c8ccd1';
-			}
-		} else {
-			return '#a2a9b1';
+		if ( $this->mPagesStatus == 'complete' ) {
+			return 'pageExchangeCard--complete';
 		}
+		if ( $this->mPagesStatus == 'partial' ) {
+			return 'pageExchangeCard--partial';
+		}
+		return 'pageExchangeCard--default';
 	}
 
 	public function getCardBodyHTML() {

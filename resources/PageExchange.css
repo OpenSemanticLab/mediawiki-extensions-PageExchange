@@ -1,5 +1,81 @@
 /* CSS for the Page Exchange extension */
 
+:root {
+	--px-card-bg: #fff;
+	--px-card-border: #a2a9b1;
+	--px-card-header-bg: #c8ccd1;
+	--px-card-shadow: rgba( 0, 0, 0, 0.2 );
+
+	--px-card-complete-bg: #fef6e7;
+	--px-card-complete-border: #ac6600;
+	--px-card-complete-header-bg: #fc3;
+
+	--px-card-partial-bg: #ffc8c8;
+	--px-card-partial-border: #a00;
+	--px-card-partial-header-bg: #d33;
+
+	--px-card-nonmatching-bg: #f8f9fa;
+	--px-card-nonmatching-border: #72777d;
+	--px-card-nonmatching-header-bg: #a2a9b1;
+
+	--px-info-bg: #eaf3ff;
+	--px-info-border: #36c;
+	--px-warning-bg: #fff;
+	--px-warning-border: #999;
+}
+
+/* Dark mode: Bootstrap data-bs-theme attribute (primary) */
+[data-bs-theme="dark"] {
+	--px-card-bg: #2b2b2b;
+	--px-card-border: #555;
+	--px-card-header-bg: #3a3a3a;
+	--px-card-shadow: rgba( 0, 0, 0, 0.5 );
+
+	--px-card-complete-bg: #3a3020;
+	--px-card-complete-border: #ac6600;
+	--px-card-complete-header-bg: #6a4e00;
+
+	--px-card-partial-bg: #3a2020;
+	--px-card-partial-border: #a00;
+	--px-card-partial-header-bg: #6a1010;
+
+	--px-card-nonmatching-bg: #222;
+	--px-card-nonmatching-border: #555;
+	--px-card-nonmatching-header-bg: #333;
+
+	--px-info-bg: #1a2a3a;
+	--px-info-border: #36c;
+	--px-warning-bg: #2b2b2b;
+	--px-warning-border: #666;
+}
+
+/* Dark mode: OS/browser preference fallback for non-Bootstrap skins */
+@media ( prefers-color-scheme: dark ) {
+	:root:not([data-bs-theme="light"]) {
+		--px-card-bg: #2b2b2b;
+		--px-card-border: #555;
+		--px-card-header-bg: #3a3a3a;
+		--px-card-shadow: rgba( 0, 0, 0, 0.5 );
+
+		--px-card-complete-bg: #3a3020;
+		--px-card-complete-border: #ac6600;
+		--px-card-complete-header-bg: #6a4e00;
+
+		--px-card-partial-bg: #3a2020;
+		--px-card-partial-border: #a00;
+		--px-card-partial-header-bg: #6a1010;
+
+		--px-card-nonmatching-bg: #222;
+		--px-card-nonmatching-border: #555;
+		--px-card-nonmatching-header-bg: #333;
+
+		--px-info-bg: #1a2a3a;
+		--px-info-border: #36c;
+		--px-warning-bg: #2b2b2b;
+		--px-warning-border: #666;
+	}
+}
+
 div.pageExchangeCardWrapper {
 	width: 33%;
 	float: left;
@@ -8,7 +84,9 @@ div.pageExchangeCardWrapper {
 div.pageExchangeCard {
 	padding: 10px;
 	margin: 10px;
-	box-shadow: 0 4px 8px 0 rgba( 0, 0, 0, 0.2 );
+	background: var( --px-card-bg );
+	border: 1px solid var( --px-card-border );
+	box-shadow: 0 4px 8px 0 var( --px-card-shadow );
 	word-break: break-word;
 }
 
@@ -16,6 +94,39 @@ div.pageExchangeCardHeader {
 	padding: 5px;
 	font-size: larger;
 	font-weight: bold;
+	background: var( --px-card-header-bg );
+	border-bottom: 1px solid var( --px-card-border );
+}
+
+/* Card status variants */
+.pageExchangeCard--complete {
+	background: var( --px-card-complete-bg );
+	border-color: var( --px-card-complete-border );
+}
+
+.pageExchangeCard--complete .pageExchangeCardHeader {
+	background: var( --px-card-complete-header-bg );
+	border-color: var( --px-card-complete-border );
+}
+
+.pageExchangeCard--partial {
+	background: var( --px-card-partial-bg );
+	border-color: var( --px-card-partial-border );
+}
+
+.pageExchangeCard--partial .pageExchangeCardHeader {
+	background: var( --px-card-partial-header-bg );
+	border-color: var( --px-card-partial-border );
+}
+
+.pageExchangeCard--nonmatching {
+	background: var( --px-card-nonmatching-bg );
+	border-color: var( --px-card-nonmatching-border );
+}
+
+.pageExchangeCard--nonmatching .pageExchangeCardHeader {
+	background: var( --px-card-nonmatching-header-bg );
+	border-color: var( --px-card-nonmatching-border );
 }
 
 p.pageExchangeCardBottomLink {
@@ -24,8 +135,8 @@ p.pageExchangeCardBottomLink {
 }
 
 table.pageExchangeInfoMessage {
-	background: #eaf3ff;
-	border: 1px dashed #36c;
+	background: var( --px-info-bg );
+	border: 1px dashed var( --px-info-border );
 	margin: 15px;
 }
 
@@ -34,8 +145,8 @@ table.pageExchangeInfoMessage td {
 }
 
 table.pageExchangeWarningMessage {
-	background: #fff;
-	border: 1px dashed #999;
+	background: var( --px-warning-bg );
+	border: 1px dashed var( --px-warning-border );
 	margin: 15px;
 }
 

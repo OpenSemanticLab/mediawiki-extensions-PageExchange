@@ -112,12 +112,8 @@ abstract class PXPackage {
 		return $this->mGlobalID;
 	}
 
-	public function getCardBGColor() {
-		return [ 255, 255, 255 ];
-	}
-
-	public function getCardHeaderBGColor() {
-		return '#c8ccd1';
+	public function getCardStatusClass() {
+		return 'pageExchangeCard--default';
 	}
 
 	public function getCardBodyHTML() {
@@ -125,17 +121,11 @@ abstract class PXPackage {
 	}
 
 	public function displayCard() {
-		$bgColor = $this->getCardBGColor();
-		$bgHex = $this->colorArrayToHex( $bgColor );
-		$headerBGColor = $this->darkenColor( $bgColor );
-		$headerBGHex = $this->colorArrayToHex( $headerBGColor );
-		// $headerBGHex = $this->getCardHeaderBGColor();
-		$borderColor = $this->darkenColor( $headerBGColor );
-		$borderHex = $this->colorArrayToHex( $borderColor );
+		$statusClass = $this->getCardStatusClass();
 		$packageHTML = <<<END
 <div class="pageExchangeCardWrapper">
-<div class="pageExchangeCard" style="background: $bgHex; border: 1px $borderHex solid;">
-<div class="pageExchangeCardHeader" style="background: $headerBGHex; border: 1px $borderHex solid;">
+<div class="pageExchangeCard {$statusClass}">
+<div class="pageExchangeCardHeader">
 {$this->mName}
 </div>
 
@@ -144,22 +134,6 @@ END;
 		$packageHTML .= "</div>\n</div>\n";
 
 		return $packageHTML;
-	}
-
-	protected function colorArrayToHex( $colors ) {
-		return sprintf( "#%02x%02x%02x", $colors[0], $colors[1], $colors[2] );
-	}
-
-	protected function darkenColor( $colors ) {
-		$redDifference = 256 - $colors[0];
-		$greenDifference = 256 - $colors[1];
-		$blueDifference = 256 - $colors[2];
-		$differenceSum = $redDifference + $greenDifference + $blueDifference;
-		return [
-			round( $colors[0] - 120 * ( $redDifference / $differenceSum ) ),
-			round( $colors[1] - 120 * ( $greenDifference / $differenceSum ) ),
-			round( $colors[2] - 120 * ( $blueDifference / $differenceSum ) ),
-		];
 	}
 
 	public function displayAttribute( $attrMsg, $value, $hasError = false ) {
