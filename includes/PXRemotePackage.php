@@ -6,6 +6,8 @@
  * @ingroup PX
  */
 
+use MediaWiki\MediaWikiServices;
+
 class PXRemotePackage extends PXPackage {
 
 	private $mDirectoryNum;
@@ -343,7 +345,7 @@ END;
 	}
 
 	public function install( $user ) {
-		$dbw = wfGetDB( DB_PRIMARY );
+		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_PRIMARY );
 
 		$maxPackageID = $dbw->selectField( 'px_packages', 'MAX(pxp_id)' );
 		$packageID = $maxPackageID + 1;

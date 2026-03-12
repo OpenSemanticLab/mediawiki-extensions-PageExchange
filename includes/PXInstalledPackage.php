@@ -6,6 +6,8 @@
  * @ingroup PX
  */
 
+use MediaWiki\MediaWikiServices;
+
 class PXInstalledPackage extends PXPackage {
 
 	private $mID;
@@ -287,7 +289,7 @@ END;
 	}
 
 	public function update( $user ) {
-		$dbw = wfGetDB( DB_PRIMARY );
+		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_PRIMARY );
 
 		$remotePackage = $this->mAssociatedRemotePackage;
 		$updateValues = [
@@ -320,7 +322,7 @@ END;
 	}
 
 	public function uninstall( $user, $deleteAll ) {
-		$dbw = wfGetDB( DB_PRIMARY );
+		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_PRIMARY );
 
 		if ( $deleteAll ) {
 			foreach ( $this->mPages as $page ) {

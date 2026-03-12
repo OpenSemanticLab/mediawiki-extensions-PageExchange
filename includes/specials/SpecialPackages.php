@@ -5,6 +5,8 @@
  * @author Yaron Koren
  */
 
+use MediaWiki\MediaWikiServices;
+
 class SpecialPackages extends SpecialPage {
 
 	private $mInstalledExtensions = [];
@@ -219,7 +221,7 @@ class SpecialPackages extends SpecialPage {
 
 		$fileURL = $packageFiles[$fileNum - 1];
 
-		$dbr = wfGetDb( DB_REPLICA );
+		$dbr = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_REPLICA );
 		$res = $dbr->select(
 			'px_packages',
 			'pxp_global_id'

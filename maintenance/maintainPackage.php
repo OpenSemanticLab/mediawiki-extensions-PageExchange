@@ -7,6 +7,7 @@ if ( $IP === false ) {
 }
 require_once "$IP/maintenance/Maintenance.php";
 
+use MediaWiki\MediaWikiServices;
 
 /**
  * installs, updates or uninstalls a package
@@ -141,7 +142,7 @@ class PXMaintainPackage extends \Maintenance {
      * @see PXInstallPackageAPI
      */
 	private function getRemotePackage( $packageID ) {
-		$dbr = wfGetDb( DB_REPLICA );
+		$dbr = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_REPLICA );
 		$res = $dbr->select(
 			'px_packages',
 			'pxp_global_id'

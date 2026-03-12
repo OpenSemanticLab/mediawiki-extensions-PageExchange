@@ -1,5 +1,7 @@
 <?php
 
+use MediaWiki\MediaWikiServices;
+
 class PXInstallPackageAPI extends ApiBase {
 
 	private $mInstalledExtensions = [];
@@ -26,7 +28,7 @@ class PXInstallPackageAPI extends ApiBase {
 	}
 
 	private function getRemotePackage( $packageID ) {
-		$dbr = wfGetDb( DB_REPLICA );
+		$dbr = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_REPLICA );
 		$res = $dbr->select(
 			'px_packages',
 			'pxp_global_id'

@@ -28,7 +28,7 @@ class PXUtils {
 
 	public static function getInstalledPackages( $user ) {
 		$installedPackages = [];
-		$dbr = wfGetDb( DB_REPLICA );
+		$dbr = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_REPLICA );
 		$res = $dbr->select(
 			'px_packages',
 			[ 'pxp_id', 'pxp_name', 'pxp_package_data' ]
