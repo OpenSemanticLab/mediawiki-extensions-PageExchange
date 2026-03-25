@@ -57,8 +57,14 @@ class PXCreatePageJob extends Job {
 		if ( array_key_exists( 'page_url', $this->params ) ) {
 			$pageText = PXUtils::getWebPageContents( $this->params['page_url'] );
 			if ( $pageText === '' || $pageText === false || $pageText === null ) {
-				wfLogWarning( 'PageExchange: empty content fetched for page "' .
-					$this->title->getPrefixedDBkey() . '" from ' . $this->params['page_url'] );
+				$msg = 'PageExchange: empty content fetched for page "' .
+					$this->title->getPrefixedDBkey() . '" from ' . $this->params['page_url'];
+				// Empty main slot is expected for pages with named slots only (e.g. jsondata, jsonschema)
+				if ( array_key_exists( 'slots', $this->params ) ) {
+					wfDebugLog( 'PageExchange', $msg );
+				} else {
+					wfLogWarning( $msg );
+				}
 			}
 			$newContent = ContentHandler::makeContent( $pageText, $this->title );
 			$updater->setContent( MediaWiki\Revision\SlotRecord::MAIN, $newContent );
