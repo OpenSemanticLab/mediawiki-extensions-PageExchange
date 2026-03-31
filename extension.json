@@ -93,6 +93,10 @@
 		},
 		"PageExchangeCacheTTL": {
 			"value": 3600
+		},
+		"PageExchangeMaxDisplayedPages": {
+			"description": "Maximum pages to show on package detail/list. false = no limit (show all), 0 = hide page list, N = show first N pages.",
+			"value": false
 		}
 	},
 	"APIModules": {

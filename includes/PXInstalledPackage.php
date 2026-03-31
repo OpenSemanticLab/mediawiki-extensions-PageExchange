@@ -23,6 +23,9 @@ class PXInstalledPackage extends PXPackage {
 		$package->mName = $dbRow['pxp_name'];
 		$package->mID = $dbRow['pxp_id'];
 		$package->mUser = $user;
+		if ( $packageData === null ) {
+			$package->mInstallPending = true;
+		}
 
 		return $package;
 	}
@@ -48,6 +51,10 @@ class PXInstalledPackage extends PXPackage {
 
 	public function getCardBodyHTML() {
 		$packageHTML = '';
+		if ( !empty( $this->mInstallPending ) ) {
+			$packageHTML .= $this->displayInfoMessage( '&#x23F3; Install running — page creation jobs are still being processed.' );
+			return $packageHTML;
+		}
 		$remotePackage = $this->mAssociatedRemotePackage;
 		if ( $remotePackage !== null && $remotePackage->mVersion !== $this->mVersion ) {
 			$packageHTML .= $this->displayInfoMessage( wfMessage( 'pageexchange-package-morerecent' )->parse() );
@@ -110,7 +117,20 @@ class PXInstalledPackage extends PXPackage {
 			$pageLink = Linker::link( $page->getLocalTitle(), null, [], [ 'action' => 'raw' ] );
 			$pageLinks[] = $pageLink;
 		}
-		$this->mPagesString = implode( ', ', $pageLinks );
+		if ( count( $pageLinks ) > 7 ) {
+			$shownLinks = array_splice( $pageLinks, 0, 7 );
+			$shownLinksStr = implode( ', ', $shownLinks );
+			$hiddenLinksStr = implode( ', ', $pageLinks );
+			$this->mPagesString = <<<END
+<span class="pageExchangePageLinks">
+$shownLinksStr, <span class="pageExchangeAdditionalPages">$hiddenLinksStr</span>
+(<a class="pageExchangeToggle">show more</a>)
+</span>
+
+END;
+		} else {
+			$this->mPagesString = implode( ', ', $pageLinks );
+		}
 	}
 
 	private function isUpdateable() {
@@ -157,8 +177,12 @@ class PXInstalledPackage extends PXPackage {
 				$pagesString .= ' - <span class="error">This page no longer exists in the latest version of this package.</span>';
 				$remoteDiffersFromInstalled = true;
 			} elseif ( $remoteContents == null ) {
+				$hasSlots = property_exists( $page, 'slots' ) ||
+					( $page->getURL() !== null && strpos( $page->getURL(), '.slot_main.' ) !== false );
 				$pagesString .= ' (' . Html::element( 'a', [ 'href' => $page->getURL() ], 'external' ) . ')';
-				$pagesString .= ' - <span class="error">' . wfMessage( 'pageexchange-nocontentslocal' )->parse() . '</span>';
+				if ( !$hasSlots ) {
+					$pagesString .= ' - <span class="error">' . wfMessage( 'pageexchange-nocontentslocal' )->parse() . '</span>';
+				}
 			} elseif ( !$page->localTitleExists() ) {
 				// Seems impossible that this would happen.
 				$remoteDiffersFromInstalled = true;

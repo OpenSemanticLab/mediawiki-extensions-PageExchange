@@ -77,6 +77,9 @@ abstract class PXPackage {
 	}
 
 	public static function getPackageField( $fieldName, $fileData, $packageData, $escapeHTML = true, $isWikitext = false ) {
+		if ( $packageData === null ) {
+			return null;
+		}
 		if ( property_exists( $packageData, $fieldName ) ) {
 			$value = $packageData->$fieldName;
 		} elseif ( $fileData !== null && property_exists( $fileData, $fieldName ) ) {
@@ -259,6 +262,8 @@ END;
 		foreach ( $gitHubPagesData->tree as $gitHubPageData ) {
 			$gitHubPageNames[] = $gitHubPageData->path;
 		}
+		// Build raw page data without creating PXPage objects (deferred to materializeGitHubPages)
+		$this->mPendingGitHubPageData = [];
 		foreach ( $gitHubPageNames as $gitHubPageName ) {
 			$pageName = $gitHubPageName;
 			foreach ( $namespaceSettings as $settings ) {
@@ -294,9 +299,34 @@ END;
 							rawurlencode( $actualFileName );
 					}
 				}
-				$this->mPages[] = PXPage::newFromData( $pageData, null );
+				$this->mPendingGitHubPageData[] = $pageData;
 			}
 		}
+		$this->mGitHubPageCount = count( $this->mPendingGitHubPageData );
+	}
+
+	/**
+	 * Create PXPage objects from deferred GitHub data.
+	 * Called on demand when pages are actually needed (display or install).
+	 */
+	public function materializeGitHubPages() {
+		if ( empty( $this->mPendingGitHubPageData ) ) {
+			return;
+		}
+		foreach ( $this->mPendingGitHubPageData as $pageData ) {
+			$page = PXPage::newFromData( $pageData, null );
+			if ( $page !== null ) {
+				$this->mPages[] = $page;
+			}
+		}
+		$this->mPendingGitHubPageData = [];
+	}
+
+	/**
+	 * Get total page count including pending (not yet materialized) GitHub pages.
+	 */
+	public function getTotalPageCount() {
+		return count( $this->mPages ) + ( $this->mGitHubPageCount ?? 0 );
 	}
 
 	public function getGitHubRepoInfo() {

@@ -98,7 +98,7 @@ class PXCreatePageJob extends Job {
 		}
 
 		$editSummary = $this->params['edit_summary'];
-		$flags = 0;
+		$flags = EDIT_FORCE_BOT;
 
 		$updater->saveRevision( CommentStoreComment::newUnsavedComment( $editSummary ), $flags );
 

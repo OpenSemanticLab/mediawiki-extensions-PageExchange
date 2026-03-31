@@ -9,6 +9,11 @@ class PXHooks {
 		// For now, there's just a single SQL file for all DB types.
 		$updater->addExtensionTable( 'px_packages', __DIR__ . "/../PageExchange.sql" );
 
+		// Upgrade pxp_package_data from TEXT (64KB) to MEDIUMTEXT (16MB)
+		// to support large packages with thousands of pages.
+		$updater->modifyExtensionField( 'px_packages', 'pxp_package_data',
+			__DIR__ . "/../sql/patch-px_packages-pxp_package_data-mediumtext.sql" );
+
 		return true;
 	}
 

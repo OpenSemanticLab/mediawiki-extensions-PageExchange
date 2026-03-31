@@ -48,8 +48,9 @@ class PXPage {
 			if ( $page->mLocalTitle == null ) {
 				return null;
 			}
-			$page->mLocalLink = Linker::link( $page->mLocalTitle );
-			$page->mLocalTitleExists = $page->mLocalTitle->exists();
+			// Defer Linker::link() and exists() — will be fast after LinkBatch pre-loads the LinkCache
+			$page->mLocalLink = null;
+			$page->mLocalTitleExists = null;
 			$pageFullName = $page->mLocalTitle->getFullText();
 			if ( $page->mNamespace == NS_FILE ) {
 				if ( property_exists( $packagePageData, 'fileURL' ) ) {
@@ -116,7 +117,10 @@ class PXPage {
 	}
 
 	public function localTitleExists() {
-		return $this->mLocalTitleExists;
+		if ( $this->mLocalTitleExists === null && $this->mLocalTitle !== null ) {
+			$this->mLocalTitleExists = $this->mLocalTitle->exists();
+		}
+		return $this->mLocalTitleExists ?? false;
 	}
 
 	public function getLink() {
@@ -124,6 +128,9 @@ class PXPage {
 	}
 
 	public function getLocalLink() {
+		if ( $this->mLocalLink === null && $this->mLocalTitle !== null ) {
+			$this->mLocalLink = Linker::link( $this->mLocalTitle );
+		}
 		return $this->mLocalLink;
 	}
 

@@ -6,6 +6,7 @@
  * @ingroup PX
  */
 
+use MediaWiki\Html\Html;
 use MediaWiki\MediaWikiServices;
 
 class PXRemotePackage extends PXPackage {
@@ -44,14 +45,37 @@ class PXRemotePackage extends PXPackage {
 		$matchingPageFound = false;
 		$nonMatchingPageFound = false;
 		$pageLinks = [];
-		if ( count( $this->mPages ) == 0 ) {
+		$totalPages = $this->getTotalPageCount();
+
+		if ( $totalPages == 0 ) {
 			$this->mUninstallableReasons[] = 'no-pages';
 		}
 		$userCanEditJS = $this->mUser->isAllowed( 'editinterface' ) && $this->mUser->isAllowed( 'editsitejs' );
 		$userCanEditCSS = $this->mUser->isAllowed( 'editinterface' ) && $this->mUser->isAllowed( 'editsitecss' );
+		$maxDisplay = MediaWikiServices::getInstance()->getMainConfig()->get( 'PageExchangeMaxDisplayedPages' );
+
+		// Batch-load title existence into LinkCache (single DB query instead of one per page)
+		$linkBatch = MediaWikiServices::getInstance()->getLinkBatchFactory()->newLinkBatch();
+		foreach ( $this->mPages as $page ) {
+			if ( $page !== null && $page->getLocalTitle() !== null ) {
+				$linkBatch->addObj( $page->getLocalTitle() );
+			}
+		}
+		if ( !$linkBatch->isEmpty() ) {
+			$linkBatch->execute();
+		}
+
+		$pageIndex = 0;
 		foreach ( $this->mPages as $page ) {
 			if ( $page == null ) {
 				continue;
+			}
+			// maxDisplay=0: skip all page links; maxDisplay=false: no limit
+			if ( $maxDisplay === 0 ) {
+				break;
+			}
+			if ( $maxDisplay !== false && $pageIndex >= $maxDisplay ) {
+				break;
 			}
 			if ( $page->getLocalTitle() == null && !in_array( 'bad-namespace', $this->mUninstallableReasons ) ) {
 				$this->mUninstallableReasons[] = 'bad-namespace';
@@ -64,13 +88,37 @@ class PXRemotePackage extends PXPackage {
 			$pageLink = $page->getLink();
 			if ( $page->localTitleExists() ) {
 				$pageLink = "<em>" . $pageLink . "</em>";
-				// $localLink = Linker::link( $page->getLocalTitle(), 'local', [], [ 'action' => 'raw' ] );
-				//$pageLink .= " ($localLink)";
 				$matchingPageFound = true;
 			} else {
 				$nonMatchingPageFound = true;
 			}
 			$pageLinks[] = $pageLink;
+			$pageIndex++;
+		}
+		// For deferred GitHub pages, add lightweight page name links (no DB lookups)
+		if ( !empty( $this->mPendingGitHubPageData ) && $maxDisplay !== 0 ) {
+			foreach ( $this->mPendingGitHubPageData as $pageData ) {
+				if ( $maxDisplay !== false && count( $pageLinks ) >= $maxDisplay ) {
+					break;
+				}
+				$ns = $pageData->namespace ?? '';
+				$name = $pageData->name ?? '';
+				$displayName = ( $ns ? $ns . ':' : '' ) . $name;
+				$pageLinks[] = htmlspecialchars( $displayName );
+			}
+		}
+
+		// Add truncation notice only when some pages were not shown
+		$shownCount = count( $pageLinks );
+		$remaining = $totalPages - $shownCount;
+		if ( $remaining > 0 ) {
+			$truncationNote = "<em>... $remaining more pages ($totalPages total)</em>";
+			$gitHubInfo = $this->getGitHubRepoInfo();
+			if ( $gitHubInfo !== null ) {
+				$repoUrl = "https://github.com/{$gitHubInfo['account']}/{$gitHubInfo['repo']}";
+				$truncationNote .= " (" . Html::element( 'a', [ 'href' => $repoUrl ], 'view all on GitHub' ) . ")";
+			}
+			$pageLinks[] = $truncationNote;
 		}
 		if ( count( $pageLinks ) > 7 ) {
 			$shownLinks = array_splice( $pageLinks, 0, 7 );
@@ -261,30 +309,79 @@ END;
 		}
 	}
 
+	public function prefetchForDisplay() {
+		$maxDisplay = MediaWikiServices::getInstance()->getMainConfig()->get( 'PageExchangeMaxDisplayedPages' );
+		if ( $maxDisplay === 0 ) {
+			return; // No page content needed for display
+		}
+		$this->materializeGitHubPages();
+		// For GitHub packages, download entire repo as zip (much faster than individual fetches)
+		$gitHubInfo = $this->getGitHubRepoInfo();
+		if ( $gitHubInfo !== null ) {
+			PXUtils::downloadGitHubRepoContents(
+				$gitHubInfo['account'],
+				$gitHubInfo['repo'],
+				$gitHubInfo['branch']
+			);
+			return;
+		}
+		// Non-GitHub: fall back to parent (individual URL fetches)
+		parent::prefetchForDisplay();
+	}
+
 	public function getFullHTML() {
 		$packageHTML = '';
 		$packageHTML .= $this->displayDescription();
 		$packageHTML .= $this->displayWebsite( true );
 		$packageHTML .= $this->displayAttribute( 'pageexchange-package-publisher', $this->mPublisher );
 		$packageHTML .= $this->displayAttribute( 'pageexchange-package-author', $this->mAuthor );
+		$maxDisplay = MediaWikiServices::getInstance()->getMainConfig()->get( 'PageExchangeMaxDisplayedPages' );
+		$totalPages = $this->getTotalPageCount();
 		$pagesString = "<ul>\n";
-		foreach ( $this->mPages as $page ) {
-			$pagesString .= "<li>" . $page->getLink();
-			$remoteContents = $page->getRemoteContents();
-			if ( $remoteContents == null && !property_exists( $page, 'slots' ) ) {
-				$pagesString .= ' - <span class="error">' . wfMessage( 'pageexchange-nocontentsremote' )->parse() . '</span>';
-			} elseif ( !$page->localTitleExists() ) {
-				// Do nothing.
-			} else {
-				$localContents = $page->getLocalContents();
-				if ( $localContents == $remoteContents ) {
-					$pagesString .= ' - there is a local copy of this page that matches the external version.';
+
+		// maxDisplay=0: show no pages, just total count + GitHub link
+		if ( $maxDisplay === 0 ) {
+			$pagesString .= "<li><em>$totalPages pages in this package</em>";
+			$gitHubInfo = $this->getGitHubRepoInfo();
+			if ( $gitHubInfo !== null ) {
+				$repoUrl = "https://github.com/{$gitHubInfo['account']}/{$gitHubInfo['repo']}";
+				$pagesString .= " (" . Html::element( 'a', [ 'href' => $repoUrl ], 'view all on GitHub' ) . ")";
+			}
+			$pagesString .= "</li>\n";
+		} else {
+			$pageIndex = 0;
+			foreach ( $this->mPages as $page ) {
+				if ( $maxDisplay !== false && $pageIndex >= $maxDisplay ) {
+					$remaining = $totalPages - $maxDisplay;
+					$pagesString .= "<li><em>... and $remaining more pages</em>";
+					$gitHubInfo = $this->getGitHubRepoInfo();
+					if ( $gitHubInfo !== null ) {
+						$repoUrl = "https://github.com/{$gitHubInfo['account']}/{$gitHubInfo['repo']}";
+						$pagesString .= " (" . Html::element( 'a', [ 'href' => $repoUrl ], 'view all on GitHub' ) . ")";
+					}
+					$pagesString .= "</li>\n";
+					break;
+				}
+				$pagesString .= "<li>" . $page->getLink();
+				$remoteContents = $page->getRemoteContents();
+				$hasSlots = property_exists( $page, 'slots' ) ||
+					( $page->getURL() !== null && strpos( $page->getURL(), '.slot_main.' ) !== false );
+				if ( $remoteContents == null && !$hasSlots ) {
+					$pagesString .= ' - <span class="error">' . wfMessage( 'pageexchange-nocontentsremote' )->parse() . '</span>';
+				} elseif ( !$page->localTitleExists() ) {
+					// Do nothing.
 				} else {
-					$pagesString .= ' - there is a local copy of this page that differs from the external version.';
+					$localContents = $page->getLocalContents();
+					if ( $localContents == $remoteContents ) {
+						$pagesString .= ' - there is a local copy of this page that matches the external version.';
+					} else {
+						$pagesString .= ' - there is a local copy of this page that differs from the external version.';
+					}
+					if ( $page->getNamespace() == NS_FILE ) {
+						$pagesString .= ' (It is unknown whether the local copy of the file itself matches the external version.)';
+					}
 				}
-				if ( $page->getNamespace() == NS_FILE ) {
-					$pagesString .= ' (It is unknown whether the local copy of the file itself matches the external version.)';
-				}
+				$pageIndex++;
 			}
 		}
 		$pagesString .= "</ul>\n";
@@ -345,6 +442,7 @@ END;
 	}
 
 	public function install( $user ) {
+		$this->materializeGitHubPages();
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_PRIMARY );
 
 		$maxPackageID = $dbw->selectField( 'px_packages', 'MAX(pxp_id)' );

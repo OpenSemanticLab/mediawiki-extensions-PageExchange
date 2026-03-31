@@ -8,5 +8,5 @@ CREATE TABLE /*_*/px_packages (
 	pxp_global_id varchar(255) NOT NULL UNIQUE,
 	pxp_js_pages varchar(500),
 	pxp_css_pages varchar(500),
-	pxp_package_data TEXT NOT NULL
+	pxp_package_data MEDIUMTEXT NOT NULL
 ) /*$wgDBTableOptions*/;
