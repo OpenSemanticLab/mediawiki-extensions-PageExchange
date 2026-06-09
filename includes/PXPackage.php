@@ -30,7 +30,21 @@ abstract class PXPackage {
 	protected $mGitHubRepo;
 	protected $mGitHubBranch;
 
-	public function populateWithData( $fileData, $packageData ) {
+	public function populateWithData( $fileData, $packageData, $packageFileURL = null ) {
+		// If the packages.json itself was served from a non-default GitHub
+		// branch, rewrite any same-repo URLs in the package data (baseURL,
+		// pages[].url, pages[].fileURL, pages[].slots[].url) to point at
+		// that same branch — so installing/updating from a branch doesn't
+		// require editing the upstream packages.json.
+		if ( $packageFileURL !== null ) {
+			$pxBranch = PXUtils::parseGitHubBranchFromURL( $packageFileURL );
+			$pxOrgRepo = PXUtils::parseGitHubOrgRepoFromURL( $packageFileURL );
+			if ( $pxBranch !== null && $pxOrgRepo !== null ) {
+				self::rewriteGitHubBranchInPackageData( $fileData, $pxOrgRepo, $pxBranch );
+				self::rewriteGitHubBranchInPackageData( $packageData, $pxOrgRepo, $pxBranch );
+			}
+		}
+
 		$baseURL = self::getPackageField( 'baseURL', $fileData, $packageData );
 		$pagesData = self::getPackageField( 'pages', $fileData, $packageData, false );
 		if ( $pagesData !== null ) {
@@ -46,7 +60,7 @@ abstract class PXPackage {
 		if ( $directoryStructureData != null && property_exists( $directoryStructureData, 'service' ) ) {
 			$directoryStructureService = $directoryStructureData->service;
 			if ( $directoryStructureService == 'GitHub' ) {
-				self::addToPagesFromGitHubData( $directoryStructureData );
+				self::addToPagesFromGitHubData( $directoryStructureData, $packageFileURL );
 			}
 		}
 		$this->processPages();
@@ -230,7 +244,39 @@ END;
 		return $text;
 	}
 
-	protected function addToPagesFromGitHubData( $gitHubData ) {
+	private static function rewriteGitHubBranchInPackageData( $data, $orgRepo, $branch ) {
+		if ( $data === null || !is_object( $data ) ) {
+			return;
+		}
+		if ( property_exists( $data, 'baseURL' ) && is_string( $data->baseURL ) ) {
+			$data->baseURL = PXUtils::rewriteGitHubBranchInURL( $data->baseURL, $orgRepo, $branch );
+		}
+		if ( property_exists( $data, 'pages' ) ) {
+			$pages = $data->pages;
+			if ( is_array( $pages ) || is_object( $pages ) ) {
+				foreach ( $pages as $page ) {
+					if ( !is_object( $page ) ) {
+						continue;
+					}
+					if ( property_exists( $page, 'url' ) && is_string( $page->url ) ) {
+						$page->url = PXUtils::rewriteGitHubBranchInURL( $page->url, $orgRepo, $branch );
+					}
+					if ( property_exists( $page, 'fileURL' ) && is_string( $page->fileURL ) ) {
+						$page->fileURL = PXUtils::rewriteGitHubBranchInURL( $page->fileURL, $orgRepo, $branch );
+					}
+					if ( property_exists( $page, 'slots' ) && ( is_array( $page->slots ) || is_object( $page->slots ) ) ) {
+						foreach ( $page->slots as $slot ) {
+							if ( is_object( $slot ) && property_exists( $slot, 'url' ) && is_string( $slot->url ) ) {
+								$slot->url = PXUtils::rewriteGitHubBranchInURL( $slot->url, $orgRepo, $branch );
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	protected function addToPagesFromGitHubData( $gitHubData, $packageFileURL = null ) {
 		if (
 			!property_exists( $gitHubData, 'accountName' ) ||
 			!property_exists( $gitHubData, 'repositoryName' ) ||
@@ -244,17 +290,38 @@ END;
 		$this->mGitHubAccount = $accountName;
 		$this->mGitHubRepo = $repositoryName;
 		$allGitHubPages = [];
-		$defaultBranch = 'main';
-		$gitHubAPIURL = "https://api.github.com/repos/$accountName/$repositoryName/git/trees/main?recursive=1";
-		$gitHubPagesJSON = PXUtils::getWebPageContents( $gitHubAPIURL );
-		// GitHub changed the default branch for new repos from "master" to "main" in 2020.
-		if ( $gitHubPagesJSON == '' ) {
-			$defaultBranch = 'master';
-			$gitHubAPIURL = "https://api.github.com/repos/$accountName/$repositoryName/git/trees/master?recursive=1";
-			$gitHubPagesJSON = PXUtils::getWebPageContents( $gitHubAPIURL );
+
+		// Resolve the branch up front when possible: explicit override in
+		// the package data, otherwise derived from the packages.json URL.
+		// This is the fix for child pages always being fetched from "main".
+		$explicitBranch = null;
+		if ( property_exists( $gitHubData, 'branch' ) && is_string( $gitHubData->branch ) && $gitHubData->branch !== '' ) {
+			$explicitBranch = $gitHubData->branch;
+		} elseif ( $packageFileURL !== null ) {
+			$explicitBranch = PXUtils::parseGitHubBranchFromURL( $packageFileURL );
 		}
-		if ( $gitHubPagesJSON == '' ) {
-			throw new MWException( "No data found at https://github.com/$accountName/$repositoryName" );
+
+		if ( $explicitBranch !== null ) {
+			$defaultBranch = $explicitBranch;
+			$gitHubAPIURL = "https://api.github.com/repos/$accountName/$repositoryName/git/trees/"
+				. rawurlencode( $defaultBranch ) . "?recursive=1";
+			$gitHubPagesJSON = PXUtils::getWebPageContents( $gitHubAPIURL );
+			if ( $gitHubPagesJSON == '' ) {
+				throw new MWException( "No data found at https://github.com/$accountName/$repositoryName on branch $defaultBranch" );
+			}
+		} else {
+			$defaultBranch = 'main';
+			$gitHubAPIURL = "https://api.github.com/repos/$accountName/$repositoryName/git/trees/main?recursive=1";
+			$gitHubPagesJSON = PXUtils::getWebPageContents( $gitHubAPIURL );
+			// GitHub changed the default branch for new repos from "master" to "main" in 2020.
+			if ( $gitHubPagesJSON == '' ) {
+				$defaultBranch = 'master';
+				$gitHubAPIURL = "https://api.github.com/repos/$accountName/$repositoryName/git/trees/master?recursive=1";
+				$gitHubPagesJSON = PXUtils::getWebPageContents( $gitHubAPIURL );
+			}
+			if ( $gitHubPagesJSON == '' ) {
+				throw new MWException( "No data found at https://github.com/$accountName/$repositoryName" );
+			}
 		}
 		$this->mGitHubBranch = $defaultBranch;
 		$gitHubPagesData = json_decode( $gitHubPagesJSON );

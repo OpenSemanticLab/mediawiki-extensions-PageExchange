@@ -46,7 +46,8 @@ class PXPackageFile {
 			$packageData,
 			$this->mInstalledExtensions,
 			$this->mInstalledPackages,
-			$user
+			$user,
+			$this->mURL
 		);
 	}
 
@@ -61,7 +62,8 @@ class PXPackageFile {
 				$packageData,
 				$this->mInstalledExtensions,
 				$this->mInstalledPackages,
-				$user
+				$user,
+				$this->mURL
 			);
 		}
 		return $packages;

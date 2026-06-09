@@ -18,14 +18,14 @@ class PXRemotePackage extends PXPackage {
 	private $mUninstallableReasons = [];
 	private $mIsMatch = true;
 
-	public static function newFromData( $directoryNum, $fileNum, $fileData, $packageName, $packageData, $installedExtensions, $installedPackages, $user ) {
+	public static function newFromData( $directoryNum, $fileNum, $fileData, $packageName, $packageData, $installedExtensions, $installedPackages, $user, $packageFileURL = null ) {
 		$package = new PXRemotePackage();
 
 		$package->mName = $packageName;
 		$package->mDirectoryNum = $directoryNum;
 		$package->mFileNum = $fileNum;
 		$package->mUser = $user;
-		$package->populateWithData( $fileData, $packageData );
+		$package->populateWithData( $fileData, $packageData, $packageFileURL );
 		$package->checkApplicabilityToSite( $installedExtensions, $installedPackages );
 
 		return $package;

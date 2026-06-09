@@ -328,6 +328,154 @@ class PXUtils {
 		return '';
 	}
 
+	/**
+	 * Extract "org/repo" from a GitHub URL, or null if it's not a
+	 * recognized GitHub URL we can identify a repo for.
+	 */
+	public static function parseGitHubOrgRepoFromURL( $url ) {
+		if ( !is_string( $url ) || $url === '' ) {
+			return null;
+		}
+		$host = parse_url( $url, PHP_URL_HOST );
+		$path = parse_url( $url, PHP_URL_PATH );
+		if ( !$host || !$path ) {
+			return null;
+		}
+		$host = strtolower( $host );
+		$segments = explode( '/', trim( $path, '/' ) );
+		if ( $host === 'raw.githubusercontent.com' || $host === 'github.com' ) {
+			if ( count( $segments ) < 2 ) {
+				return null;
+			}
+			return $segments[0] . '/' . $segments[1];
+		}
+		if ( $host === 'api.github.com' ) {
+			if ( count( $segments ) < 3 || $segments[0] !== 'repos' ) {
+				return null;
+			}
+			return $segments[1] . '/' . $segments[2];
+		}
+		return null;
+	}
+
+	/**
+	 * If $url is a raw.githubusercontent.com URL for $orgRepo on some other
+	 * ref, return the URL with the ref segment(s) replaced by $newBranch.
+	 * Otherwise return $url unchanged. Used so that an absolute baseURL or
+	 * page URL pinned to "main" in a packages.json is auto-redirected to
+	 * whichever branch actually served the packages.json.
+	 */
+	public static function rewriteGitHubBranchInURL( $url, $orgRepo, $newBranch ) {
+		if ( !is_string( $url ) || $url === '' || !is_string( $orgRepo ) || !is_string( $newBranch ) || $newBranch === '' ) {
+			return $url;
+		}
+		$parts = parse_url( $url );
+		if ( !isset( $parts['host'], $parts['path'] ) ) {
+			return $url;
+		}
+		if ( strtolower( $parts['host'] ) !== 'raw.githubusercontent.com' ) {
+			return $url;
+		}
+		$segments = explode( '/', ltrim( $parts['path'], '/' ) );
+		if ( count( $segments ) < 4 ) {
+			return $url;
+		}
+		$expected = explode( '/', $orgRepo, 2 );
+		if ( count( $expected ) !== 2 ) {
+			return $url;
+		}
+		if ( strcasecmp( $segments[0], $expected[0] ) !== 0
+			|| strcasecmp( $segments[1], $expected[1] ) !== 0
+		) {
+			return $url;
+		}
+		// Skip the existing ref portion: either "refs/heads/<branch>" /
+		// "refs/tags/<tag>" (5 segments consumed) or a single ref segment
+		// (3 segments consumed).
+		if ( $segments[2] === 'refs'
+			&& isset( $segments[4] )
+			&& ( $segments[3] === 'heads' || $segments[3] === 'tags' )
+		) {
+			$tail = array_slice( $segments, 5 );
+		} else {
+			$tail = array_slice( $segments, 3 );
+		}
+		// Preserve any trailing slash on the input path.
+		$trailing = substr( $parts['path'], -1 ) === '/' ? '/' : '';
+		$newPath = '/' . $segments[0] . '/' . $segments[1] . '/' . $newBranch;
+		if ( $tail ) {
+			$newPath .= '/' . implode( '/', $tail );
+		}
+		if ( $trailing && substr( $newPath, -1 ) !== '/' ) {
+			$newPath .= '/';
+		}
+		$rebuilt = ( isset( $parts['scheme'] ) ? $parts['scheme'] . '://' : '' )
+			. $parts['host']
+			. ( isset( $parts['port'] ) ? ':' . $parts['port'] : '' )
+			. $newPath
+			. ( isset( $parts['query'] ) ? '?' . $parts['query'] : '' )
+			. ( isset( $parts['fragment'] ) ? '#' . $parts['fragment'] : '' );
+		return $rebuilt;
+	}
+
+	/**
+	 * Extract the branch/tag/ref from a GitHub URL, so child page URLs can
+	 * be resolved on the same ref as the packages.json that listed them.
+	 * Returns null if the URL is not a recognized GitHub URL or no ref can
+	 * be determined.
+	 */
+	public static function parseGitHubBranchFromURL( $url ) {
+		if ( !is_string( $url ) || $url === '' ) {
+			return null;
+		}
+		$host = parse_url( $url, PHP_URL_HOST );
+		if ( $host === false || $host === null ) {
+			return null;
+		}
+		$host = strtolower( $host );
+		$path = parse_url( $url, PHP_URL_PATH );
+		if ( $path === false || $path === null ) {
+			return null;
+		}
+		$segments = explode( '/', trim( $path, '/' ) );
+
+		if ( $host === 'raw.githubusercontent.com' ) {
+			// /{org}/{repo}/{ref}/... — ref may be a branch, tag, or SHA
+			// /{org}/{repo}/refs/heads/{branch}/... or /refs/tags/{tag}/...
+			if ( count( $segments ) < 4 ) {
+				return null;
+			}
+			if ( $segments[2] === 'refs'
+				&& isset( $segments[4] )
+				&& ( $segments[3] === 'heads' || $segments[3] === 'tags' )
+			) {
+				return $segments[4];
+			}
+			return $segments[2];
+		}
+		if ( $host === 'github.com' ) {
+			// /{org}/{repo}/blob/{ref}/... or /{org}/{repo}/tree/{ref}/...
+			if ( count( $segments ) >= 4
+				&& ( $segments[2] === 'blob' || $segments[2] === 'tree' || $segments[2] === 'raw' )
+			) {
+				return $segments[3];
+			}
+			return null;
+		}
+		if ( $host === 'api.github.com' ) {
+			// /repos/{org}/{repo}/contents/{path}?ref={ref}
+			$query = parse_url( $url, PHP_URL_QUERY );
+			if ( is_string( $query ) && $query !== '' ) {
+				parse_str( $query, $queryParams );
+				if ( isset( $queryParams['ref'] ) && $queryParams['ref'] !== '' ) {
+					return $queryParams['ref'];
+				}
+			}
+			return null;
+		}
+		return null;
+	}
+
 	public static function readFileDirectory( $fileDirectoryURL ) {
 		$packageFiles = [];
 		$fileDirectoryContents = self::getWebPageContents( $fileDirectoryURL );
