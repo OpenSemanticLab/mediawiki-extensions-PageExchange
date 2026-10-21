@@ -488,7 +488,7 @@ END;
 		$this->prefetchPageContents();
 
 		foreach ( $this->mPages as $page ) {
-			$page->createOrUpdateWikiPage( $user, $this->mName, true );
+			$page->createOrUpdateWikiPage( $user, $this->mName, true, $this->mGlobalID );
 		}
 
 		$this->logAction( 'installpackage', $user );

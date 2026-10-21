@@ -52,6 +52,7 @@ class SpecialPackages extends SpecialPage {
 		} elseif ( $packageName !== null ) {
 			$package = null;
 			$this->mInstalledPackages = PXUtils::getInstalledPackages( $user );
+			$this->loadJobCounts();
 			$this->loadAllFiles();
 			foreach ( $this->mInstalledPackages as $installedPackage ) {
 				if ( $installedPackage->getName() == $packageName ) {
@@ -78,10 +79,23 @@ class SpecialPackages extends SpecialPage {
 			}
 		} else {
 			$this->mInstalledPackages = PXUtils::getInstalledPackages( $user );
+			$this->loadJobCounts();
 			$this->loadAllFiles();
 			$text = $this->displayAll();
 		}
 		$out->addHTML( $text );
+	}
+
+	private function loadJobCounts() {
+		$jobCounts = PXUtils::getPackageJobCounts();
+		if ( $jobCounts === null ) {
+			return;
+		}
+		foreach ( $this->mInstalledPackages as $installedPackage ) {
+			$installedPackage->setJobCounts(
+				$jobCounts['packages'][$installedPackage->getGlobalID()] ?? [ 'queued' => 0, 'claimed' => 0, 'failed' => 0 ]
+			);
+		}
 	}
 
 	private function loadAllFiles() {

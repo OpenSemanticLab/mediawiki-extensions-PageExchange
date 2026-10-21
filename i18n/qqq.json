@@ -70,5 +70,10 @@
 	"pageexchange-packageloadfailed": "An error message when the requested package is defined in a package file but could not be loaded. Parameters:\n* $1 - the global ID of the package\n* $2 - the error message",
 	"pageexchange-packagenotfoundincomplete": "An error message when the requested package was not found and some package files or packages could not be loaded. Parameters:\n* $1 - the global ID of the package\n* $2 - the number of package files and packages that could not be loaded",
 	"pageexchange-packagesourceambiguous": "An API warning when a package without a recorded source is defined in several package files. Parameters:\n* $1 - the global ID of the package\n* $2 - comma separated list of package file URLs",
-	"pageexchange-packagesourcechanged": "An API warning when a package is updated from a different package file than the one it was installed from. Parameters:\n* $1 - the global ID of the package\n* $2 - the URL of the previous package file\n* $3 - the URL of the new package file"
+	"pageexchange-packagesourcechanged": "An API warning when a package is updated from a different package file than the one it was installed from. Parameters:\n* $1 - the global ID of the package\n* $2 - the URL of the previous package file\n* $3 - the URL of the new package file",
+	"apihelp-query+pxpackages-extended-description": "{{doc-apihelp-extended-description|query+pxpackages}}",
+	"pageexchange-jobstateunknown": "An API warning when the state of the page jobs cannot be determined.",
+	"pageexchange-package-invaliddata": "A message on Special:Packages for an installed package whose stored package data cannot be decoded.",
+	"pageexchange-package-jobsunfinished": "An info message on Special:Packages for an installed package whose page jobs are not finished. Parameters:\n* $1 - the number of queued jobs\n* $2 - the number of jobs in progress or waiting for a retry",
+	"pageexchange-package-jobsfailed": "A warning message on Special:Packages for an installed package with failed page jobs. Parameters:\n* $1 - the number of failed jobs"
 }

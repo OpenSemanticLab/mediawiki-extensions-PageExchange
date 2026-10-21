@@ -24,12 +24,23 @@ class PXPackagesListAPI extends ApiQueryBase {
 		$items = [];
 		$installedIDs = [];
 
-		$installedItems = $this->getInstalledItems();
+		// Job counts are only needed for the installed packages that are returned.
+		$jobCounts = null;
+		if ( in_array( 'installed', $sources ) ) {
+			$jobCounts = PXUtils::getPackageJobCounts();
+			if ( $jobCounts === null ) {
+				$this->addWarning( 'pageexchange-jobstateunknown' );
+			}
+		}
+		$installedItems = $this->getInstalledItems( $jobCounts );
 		foreach ( $installedItems as $item ) {
 			$installedIDs[] = $item['globalid'];
 		}
 		if ( in_array( 'installed', $sources ) ) {
 			$items = array_merge( $items, $installedItems );
+			if ( $jobCounts !== null ) {
+				$result->addValue( 'query', 'pxpackagejobs', [ 'unattributed' => $jobCounts['unattributed'] ] );
+			}
 		}
 
 		if ( in_array( 'available', $sources ) ) {
@@ -59,9 +70,10 @@ class PXPackagesListAPI extends ApiQueryBase {
 	}
 
 	/**
+	 * @param array|null $jobCounts Result of PXUtils::getPackageJobCounts()
 	 * @return array[]
 	 */
-	private function getInstalledItems() {
+	private function getInstalledItems( $jobCounts ) {
 		$dbr = $this->getDB();
 		$res = $dbr->select(
 			'px_packages',
@@ -83,13 +95,19 @@ class PXPackagesListAPI extends ApiQueryBase {
 			}
 			$installingUser = $userLookup->getUserIdentityByUserId( (int)$row->pxp_installing_user );
 
-			$pending = $row->pxp_package_data === null;
 			$invalidData = false;
 			$version = null;
 			$baseURL = null;
 			$baseURLSource = null;
 			$packageFileURL = null;
-			if ( !$pending ) {
+			if ( $jobCounts === null ) {
+				$jobs = null;
+			} else {
+				$jobs = $jobCounts['packages'][$row->pxp_global_id] ?? [ 'queued' => 0, 'claimed' => 0, 'failed' => 0 ];
+			}
+			if ( $row->pxp_package_data === null ) {
+				$invalidData = true;
+			} else {
 				$data = json_decode( $row->pxp_package_data );
 				if ( !is_object( $data ) ) {
 					$invalidData = true;
@@ -116,7 +134,8 @@ class PXPackagesListAPI extends ApiQueryBase {
 				'version' => $version,
 				'dateinstalled' => $dateInstalled === false ? null : $dateInstalled,
 				'installinguser' => $installingUser ? $installingUser->getName() : null,
-				'pending' => $pending,
+				'pending' => $jobs === null ? null : $jobs['queued'] + $jobs['claimed'] > 0,
+				'jobs' => $jobs,
 				'invaliddata' => $invalidData,
 				'baseurl' => $baseURL,
 				'baseurlsource' => $baseURLSource,

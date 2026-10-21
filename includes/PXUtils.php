@@ -1,6 +1,7 @@
 <?php
 use MediaWiki\MediaWikiServices;
 use Wikimedia\AtEase\AtEase;
+use Wikimedia\Rdbms\DBError;
 
 class PXUtils {
 	public static function getInstalledExtensions( $config ) {
@@ -378,5 +379,81 @@ class PXUtils {
 			'repository' => "https://github.com/{$segments[0]}/{$segments[1]}",
 			'branch' => rawurldecode( $branch )
 		];
+	}
+
+	/**
+	 * Counts the page creation jobs of Page Exchange per package (globalID).
+	 *
+	 * Reads the job table directly, so it works only if the queue of the job type is a
+	 * JobQueueDB. One wiki per job table is assumed. Job states:
+	 * - queued: not claimed yet
+	 * - claimed: claimed and either running or failed and waiting to be released for a retry
+	 *   (a claim is released after claimTTL if attempts are left)
+	 * - failed: claimed, all attempts used and the claim is older than claimTTL
+	 * Jobs without a package_id parameter (queued before it existed) are counted as unattributed.
+	 *
+	 * @return array|null [ 'packages' => [ globalID => [ 'queued' => n, 'claimed' => n, 'failed' => n ] ],
+	 *  'unattributed' => n ], or null if the job state cannot be determined
+	 */
+	public static function getPackageJobCounts() {
+		$services = MediaWikiServices::getInstance();
+		$jobType = 'pageExchangeCreatePage';
+		try {
+			$queue = $services->getJobQueueGroup()->get( $jobType );
+			if ( !( $queue instanceof JobQueueDB ) ) {
+				return null;
+			}
+
+			$typeConf = $services->getMainConfig()->get( 'JobTypeConf' );
+			$conf = $typeConf[$jobType] ?? $typeConf['default'] ?? [];
+			// Same defaults as JobQueue and JobQueueDB. With a claimTTL of 0 claims are never released.
+			$claimTTL = $conf['claimTTL'] ?? 0;
+			$maxTries = $conf['maxTries'] ?? 3;
+			$staleCutoff = (int)wfTimestamp( TS_UNIX ) - $claimTTL;
+
+			// The queue may use its own database (e.g. a separate file on SQLite), so use the
+			// primary handle of the queue itself (no replica lag). JobQueueDB has no public accessor.
+			$getPrimaryDB = new ReflectionMethod( JobQueueDB::class, 'getPrimaryDB' );
+			if ( PHP_VERSION_ID < 80100 ) {
+				$getPrimaryDB->setAccessible( true );
+			}
+			$dbr = $getPrimaryDB->invoke( $queue );
+			$res = $dbr->newSelectQueryBuilder()
+				->select( [ 'job_params', 'job_token', 'job_token_timestamp', 'job_attempts' ] )
+				->from( 'job' )
+				->where( [ 'job_cmd' => $jobType ] )
+				->caller( __METHOD__ )
+				->fetchResultSet();
+			$packages = [];
+			$unattributed = 0;
+			foreach ( $res as $row ) {
+				$params = unserialize( $row->job_params, [ 'allowed_classes' => false ] );
+				$packageID = is_array( $params ) && isset( $params['package_id'] ) ? (string)$params['package_id'] : null;
+				if ( $row->job_token === '' ) {
+					$state = 'queued';
+				} elseif (
+					(int)$row->job_attempts >= $maxTries &&
+					( $claimTTL <= 0 || (int)wfTimestamp( TS_UNIX, $row->job_token_timestamp ) < $staleCutoff )
+				) {
+					$state = 'failed';
+				} else {
+					$state = 'claimed';
+				}
+				if ( $packageID === null ) {
+					if ( $state !== 'failed' ) {
+						$unattributed++;
+					}
+					continue;
+				}
+				if ( !isset( $packages[$packageID] ) ) {
+					$packages[$packageID] = [ 'queued' => 0, 'claimed' => 0, 'failed' => 0 ];
+				}
+				$packages[$packageID][$state]++;
+			}
+		} catch ( ReflectionException | JobQueueError | DBError $e ) {
+			wfDebugLog( 'PageExchange', 'Could not read the job queue state: ' . $e->getMessage() );
+			return null;
+		}
+		return [ 'packages' => $packages, 'unattributed' => $unattributed ];
 	}
 }
