@@ -6,6 +6,7 @@
 	},
 	"pageexchange-extensionname": "Page Exchange",
 	"pageexchange-desc": "Allows for installing \"packages\" of pre-defined wiki pages",
+	"grant-pageexchange": "Install, update and uninstall page packages with Page Exchange",
 	"packages": "Packages",
 	"apihelp-pxinstallpackage-summary": "Install a package using Page Exchange extension",
 	"apihelp-pxinstallpackage-param-packageid": "Global ID of a package",

@@ -9,6 +9,7 @@
 	},
 	"pageexchange-extensionname": "{{name}}",
 	"pageexchange-desc": "{{desc|name=Page Exchange|url=https://www.mediawiki.org/wiki/Extension:Page_Exchange}}",
+	"grant-pageexchange": "{{doc-grant|pageexchange}}\nLabel of the grant that allows a bot password or OAuth consumer to use the pageexchange right, shown when the bot password is created.",
 	"packages": "{{doc-special|Packages}}",
 	"apihelp-pxinstallpackage-summary": "{{doc-apihelp-summary|pxinstallpackage}}",
 	"apihelp-pxinstallpackage-param-packageid": "{{doc-apihelp-param|pxinstallpackage|packageid}}",

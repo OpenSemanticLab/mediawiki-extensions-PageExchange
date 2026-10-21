@@ -20,6 +20,14 @@
 			"pageexchange": true
 		}
 	},
+	"GrantPermissions": {
+		"pageexchange": {
+			"pageexchange": true
+		}
+	},
+	"GrantPermissionGroups": {
+		"pageexchange": "administration"
+	},
 	"Hooks": {
 		"LoadExtensionSchemaUpdates": "PXHooks::describeDBSchema",
 		"ResourceLoaderSiteModulePages": "PXHooks::loadJSPages",
