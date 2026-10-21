@@ -15,7 +15,7 @@ class PXUpdatePackageAPI extends ApiBase {
 		$user = $this->getUser();
 
 		if ( $packageID == null ) {
-			throw new MWException( wfMessage( 'pageexchange-packageidnull' ) );
+			$this->dieWithError( 'pageexchange-packageidnull', 'packageidnull' );
 		}
 
 		$this->mInstalledExtensions = PXUtils::getInstalledExtensions( $this->getConfig() );
@@ -29,7 +29,10 @@ class PXUpdatePackageAPI extends ApiBase {
 			}
 		}
 		if ( $package == null ) {
-			throw new MWException( wfMessage( 'pageexchange-packagenotexists', $packageID ) );
+			$this->dieWithError( [ 'pageexchange-packagenotexists', $packageID ], 'packagenotexists' );
+		}
+		if ( $package->getAssociatedRemotePackage() === null ) {
+			$this->dieWithError( [ 'pageexchange-packagenotavailable', $packageID ], 'packagenotavailable' );
 		}
 		$package->update( $user );
 	}
@@ -43,19 +46,32 @@ class PXUpdatePackageAPI extends ApiBase {
 
 		$packageFileURLs = $this->getConfig()->get( 'PageExchangePackageFiles' );
 		foreach ( $packageFileURLs as $i => $url ) {
-			$pxFiles[] = PXPackageFile::init( $url, -1, $i + 1, $this->mInstalledExtensions, $installedPackageIDs );
+			try {
+				$pxFiles[] = PXPackageFile::init( $url, -1, $i + 1, $this->mInstalledExtensions, $installedPackageIDs );
+			} catch ( MWException $e ) {
+				$this->addWarning( [ 'pageexchange-packagefileerror', $url, $e->getMessage() ] );
+			}
 		}
 
 		$fileDirectories = $this->getConfig()->get( 'PageExchangeFileDirectories' );
 		foreach ( $fileDirectories as $dirNum => $fileDirectoryURL ) {
 			$curPackageFiles = PXUtils::readFileDirectory( $fileDirectoryURL );
 			foreach ( $curPackageFiles as $fileNum => $packageURL ) {
-				$pxFiles[] = PXPackageFile::init( $packageURL, $dirNum + 1, $fileNum + 1, $this->mInstalledExtensions, $installedPackageIDs );
+				try {
+					$pxFiles[] = PXPackageFile::init( $packageURL, $dirNum + 1, $fileNum + 1, $this->mInstalledExtensions, $installedPackageIDs );
+				} catch ( MWException $e ) {
+					$this->addWarning( [ 'pageexchange-packagefileerror', $packageURL, $e->getMessage() ] );
+				}
 			}
 		}
 
 		foreach ( $pxFiles as $pxFile ) {
-			$packages = $pxFile->getAllPackages( $this->getUser() );
+			try {
+				$packages = $pxFile->getAllPackages( $this->getUser() );
+			} catch ( MWException $e ) {
+				$this->addWarning( [ 'pageexchange-packagefileerror', $pxFile->getURL(), $e->getMessage() ] );
+				continue;
+			}
 			foreach ( $packages as $remotePackage ) {
 				$this->loadRemotePackage( $remotePackage );
 			}

@@ -77,6 +77,10 @@ class PXPackagesListAPI extends ApiQueryBase {
 		$items = [];
 		foreach ( $res as $row ) {
 			$dateInstalled = wfTimestamp( TS_ISO_8601, $row->pxp_date_installed );
+			// Zero dates (e.g. from the old literal "NOW()" insert) convert to a year before 0001.
+			if ( strpos( (string)$row->pxp_date_installed, '0000-00-00' ) === 0 ) {
+				$dateInstalled = false;
+			}
 			$installingUser = $userLookup->getUserIdentityByUserId( (int)$row->pxp_installing_user );
 
 			$pending = $row->pxp_package_data === null;

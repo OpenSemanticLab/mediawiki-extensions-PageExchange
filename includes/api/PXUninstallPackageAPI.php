@@ -15,7 +15,7 @@ class PXUninstallPackageAPI extends ApiBase {
 		$user = $this->getUser();
 
 		if ( $packageID == null ) {
-			throw new MWException( wfMessage( 'pageexchange-packageidnull' ) );
+			$this->dieWithError( 'pageexchange-packageidnull', 'packageidnull' );
 		}
 
 		$this->mInstalledPackages = PXUtils::getInstalledPackages( $user );
@@ -27,7 +27,7 @@ class PXUninstallPackageAPI extends ApiBase {
 			}
 		}
 		if ( $package == null ) {
-			throw new MWException( wfMessage( 'pageexchange-packagenotexists', $packageID ) );
+			$this->dieWithError( [ 'pageexchange-packagenotexists', $packageID ], 'packagenotexists' );
 		}
 		$package->uninstall( $user, $deletePages );
 	}

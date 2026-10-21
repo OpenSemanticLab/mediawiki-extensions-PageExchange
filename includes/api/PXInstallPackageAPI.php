@@ -16,13 +16,13 @@ class PXInstallPackageAPI extends ApiBase {
 		$user = $this->getUser();
 
 		if ( $packageID == null ) {
-			throw new MWException( wfMessage( 'pageexchange-packageidnull' ) );
+			$this->dieWithError( 'pageexchange-packageidnull', 'packageidnull' );
 		}
 
 		$this->mInstalledExtensions = PXUtils::getInstalledExtensions( $this->getConfig() );
 		$package = $this->getRemotePackage( $packageID );
 		if ( $package == null ) {
-			throw new MWException( wfMessage( 'pageexchange-packagenotexists', $packageID ) );
+			$this->dieWithError( [ 'pageexchange-packagenotexists', $packageID ], 'packagenotexists' );
 		}
 		$package->install( $user );
 	}
@@ -37,14 +37,19 @@ class PXInstallPackageAPI extends ApiBase {
 		while ( $row = $res->fetchRow() ) {
 			$installedPackageIDs[] = $row[0];
 			if ( $row[0] == $packageID ) {
-				throw new MWException( wfMessage( 'pageexchange-packagealreadyinstalled', $packageID ) );
+				$this->dieWithError( [ 'pageexchange-packagealreadyinstalled', $packageID ], 'packagealreadyinstalled' );
 			}
 		}
 
 		$packageFiles = $this->getConfig()->get( 'PageExchangePackageFiles' );
 		foreach ( $packageFiles as $fileNum => $url ) {
-			$pxFile = PXPackageFile::init( $url, -1, $fileNum + 1, $this->mInstalledExtensions, $installedPackageIDs );
-			$packages = $pxFile->getAllPackages( $this->getUser() );
+			try {
+				$pxFile = PXPackageFile::init( $url, -1, $fileNum + 1, $this->mInstalledExtensions, $installedPackageIDs );
+				$packages = $pxFile->getAllPackages( $this->getUser() );
+			} catch ( MWException $e ) {
+				$this->addWarning( [ 'pageexchange-packagefileerror', $url, $e->getMessage() ] );
+				continue;
+			}
 			foreach ( $packages as $package ) {
 				if ( $package->getGlobalID() == $packageID ) {
 					return $pxFile->getPackage( $package->getName(), $this->getUser() );
@@ -56,8 +61,13 @@ class PXInstallPackageAPI extends ApiBase {
 		foreach ( $fileDirectories as $dirNum => $fileDirectoryURL ) {
 			$curPackageFiles = PXUtils::readFileDirectory( $fileDirectoryURL );
 			foreach ( $curPackageFiles as $fileNum => $packageURL ) {
-				$pxFile = PXPackageFile::init( $packageURL, $dirNum + 1, $fileNum + 1, $this->mInstalledExtensions, $installedPackageIDs );
-				$packages = $pxFile->getAllPackages( $this->getUser() );
+				try {
+					$pxFile = PXPackageFile::init( $packageURL, $dirNum + 1, $fileNum + 1, $this->mInstalledExtensions, $installedPackageIDs );
+					$packages = $pxFile->getAllPackages( $this->getUser() );
+				} catch ( MWException $e ) {
+					$this->addWarning( [ 'pageexchange-packagefileerror', $packageURL, $e->getMessage() ] );
+					continue;
+				}
 				foreach ( $packages as $package ) {
 					if ( $package->getGlobalID() == $packageID ) {
 						return $pxFile->getPackage( $package->getName(), $this->getUser() );

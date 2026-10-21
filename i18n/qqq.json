@@ -61,5 +61,7 @@
 	"pageexchange-packageupdated": "A success message",
 	"pageexchange-packageidnull": "An error message when URL misses a necessary parameter",
 	"pageexchange-packagenotexists": "An error message when no package exists",
-	"pageexchange-packagealreadyinstalled": "An info message that package is already installed"
+	"pageexchange-packagealreadyinstalled": "An info message that package is already installed",
+	"pageexchange-packagenotavailable": "An error message when an installed package is not found in any configured package file. Parameters:\n* $1 - the global ID of the package",
+	"pageexchange-packagefileerror": "An API warning when a package file could not be loaded. Parameters:\n* $1 - the URL of the package file\n* $2 - the error message"
 }

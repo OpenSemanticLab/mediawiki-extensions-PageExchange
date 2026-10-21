@@ -58,5 +58,7 @@
 	"pageexchange-packageupdated": "This package was updated.",
 	"pageexchange-packageidnull": "Error: packageid cannot be null",
 	"pageexchange-packagenotexists": "Error: No package with ID \"$1\" exists.",
-	"pageexchange-packagealreadyinstalled": "Package with ID \"$1\" is already installed"
+	"pageexchange-packagealreadyinstalled": "Package with ID \"$1\" is already installed",
+	"pageexchange-packagenotavailable": "Error: The package with ID \"$1\" is not available in any configured package file, so it cannot be updated.",
+	"pageexchange-packagefileerror": "Could not load the package file $1: $2"
 }

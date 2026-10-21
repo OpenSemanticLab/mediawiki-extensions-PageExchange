@@ -474,7 +474,7 @@ END;
 		$cssPagesString = ( count( $cssPages ) > 0 ) ? implode( ',', $cssPages ) : null;
 		$installValues = [
 			'pxp_id' => $packageID,
-			'pxp_date_installed' => 'NOW()',
+			'pxp_date_installed' => $dbw->timestamp(),
 			'pxp_installing_user' => $user->getID(),
 			'pxp_name' => $this->mName,
 			'pxp_global_id' => $this->mGlobalID,

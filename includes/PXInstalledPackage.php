@@ -30,6 +30,10 @@ class PXInstalledPackage extends PXPackage {
 		return $package;
 	}
 
+	public function getAssociatedRemotePackage() {
+		return $this->mAssociatedRemotePackage;
+	}
+
 	public function setAssociatedRemotePackage( $remotePackage ) {
 		$this->mAssociatedRemotePackage = $remotePackage;
 
@@ -316,6 +320,9 @@ END;
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_PRIMARY );
 
 		$remotePackage = $this->mAssociatedRemotePackage;
+		if ( $remotePackage === null ) {
+			throw new MWException( wfMessage( 'pageexchange-packagenotavailable', $this->getGlobalID() )->text() );
+		}
 		$updateValues = [
 			'pxp_name' => $remotePackage->mName,
 			'pxp_package_data' => json_encode( $remotePackage->getPackageData() )
