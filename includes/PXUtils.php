@@ -345,4 +345,38 @@ class PXUtils {
 		}
 		return $packageFiles;
 	}
+
+	/**
+	 * Extracts the repository URL and branch from a raw.githubusercontent.com URL.
+	 * Handles both /<owner>/<repo>/<branch>/... and /<owner>/<repo>/refs/heads/<branch>/...
+	 * Branch names that contain "/" are not parsed correctly in the first form.
+	 *
+	 * @param string|null $url
+	 * @return array|null [ 'repository' => ..., 'branch' => ... ] or null
+	 */
+	public static function parseRepositoryURL( $url ) {
+		if ( !is_string( $url ) || $url === '' ) {
+			return null;
+		}
+		$parts = parse_url( $url );
+		if ( !is_array( $parts ) || !isset( $parts['host'] ) || !isset( $parts['path'] ) ||
+			strtolower( $parts['host'] ) !== 'raw.githubusercontent.com'
+		) {
+			return null;
+		}
+		$segments = array_values( array_filter( explode( '/', $parts['path'] ), static function ( $s ) {
+			return $s !== '';
+		} ) );
+		if ( count( $segments ) < 3 ) {
+			return null;
+		}
+		$branch = $segments[2];
+		if ( $segments[2] === 'refs' && isset( $segments[3] ) && $segments[3] === 'heads' && isset( $segments[4] ) ) {
+			$branch = $segments[4];
+		}
+		return [
+			'repository' => "https://github.com/{$segments[0]}/{$segments[1]}",
+			'branch' => rawurldecode( $branch )
+		];
+	}
 }

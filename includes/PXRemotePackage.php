@@ -17,6 +17,7 @@ class PXRemotePackage extends PXPackage {
 	private $mMissingPackages = [];
 	private $mUninstallableReasons = [];
 	private $mIsMatch = true;
+	private $mPackageFileURL;
 
 	public static function newFromData( $directoryNum, $fileNum, $fileData, $packageName, $packageData, $installedExtensions, $installedPackages, $user ) {
 		$package = new PXRemotePackage();
@@ -29,6 +30,14 @@ class PXRemotePackage extends PXPackage {
 		$package->checkApplicabilityToSite( $installedExtensions, $installedPackages );
 
 		return $package;
+	}
+
+	public function setPackageFileURL( $url ) {
+		$this->mPackageFileURL = $url;
+	}
+
+	public function getPackageFileURL() {
+		return $this->mPackageFileURL;
 	}
 
 	public function getRemoteEquivalent( $installedPage ) {
@@ -435,7 +444,9 @@ END;
 			'url' => $this->mURL,
 			'requiredExtensions' => $this->mRequiredExtensions,
 			'requiredPackages' => $this->mRequiredPackages,
-			'pages' => $pagesData
+			'pages' => $pagesData,
+			'baseURL' => $this->mBaseURL,
+			'packageFileURL' => $this->mPackageFileURL
 		];
 
 		return $packageData;
