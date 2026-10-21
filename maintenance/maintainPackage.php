@@ -90,6 +90,10 @@ class PXMaintainPackage extends \Maintenance {
 				$package->install( $user );
 				$this->output( "$packageID installed\n" );
 			} catch (Exception $e) {
+				// Only an installed package leads to the update path; report any other failure.
+				if ( !$this->isInstalled( $packageID ) ) {
+					throw $e;
+				}
 				if ($update) {
 					$this->output( "$packageID already installed, run update\n" );
 					/**
@@ -141,6 +145,11 @@ class PXMaintainPackage extends \Maintenance {
     /**
      * @see PXInstallPackageAPI
      */
+	private function isInstalled( $packageID ) {
+		$dbr = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_REPLICA );
+		return $dbr->selectField( 'px_packages', 'pxp_id', [ 'pxp_global_id' => $packageID ] ) !== false;
+	}
+
 	private function getRemotePackage( $packageID ) {
 		$dbr = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_REPLICA );
 		$res = $dbr->select(
