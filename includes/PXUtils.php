@@ -40,7 +40,19 @@ class PXUtils {
 		return $installedPackages;
 	}
 
+	/**
+	 * Like getWebPageContentsOrFail(), but a failed fetch gives '' (as an empty page does).
+	 */
 	public static function getWebPageContents( $url ) {
+		$contents = self::getWebPageContentsOrFail( $url );
+		return $contents === false ? '' : $contents;
+	}
+
+	/**
+	 * @param string $url
+	 * @return string|false The contents ('' for an empty response), or false if the fetch failed
+	 */
+	public static function getWebPageContentsOrFail( $url ) {
 		$config = MediaWikiServices::getInstance()->getMainConfig();
 		try {
 			$cacheTTL = $config->get( 'PageExchangeCacheTTL' );
@@ -99,6 +111,10 @@ class PXUtils {
 		}
 	}
 
+	/**
+	 * @param string $url
+	 * @return string|false The contents ('' for an empty 200 response), or false if the fetch failed
+	 */
 	private static function fetchUrl( $url ) {
 		$gitHubToken = self::getGitHubToken( $url );
 
@@ -118,8 +134,8 @@ class PXUtils {
 			$contents = curl_exec( $ch );
 			$httpCode = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
 			curl_close( $ch );
-			if ( $httpCode !== 200 ) {
-				return '';
+			if ( $contents === false || $httpCode !== 200 ) {
+				return false;
 			}
 			return $contents;
 		}
@@ -264,7 +280,7 @@ class PXUtils {
 			// Fallback: sequential fetch.
 			foreach ( $uncachedUrls as $url ) {
 				$content = self::fetchUrl( $url );
-				$results[$url] = $content;
+				$results[$url] = $content === false ? '' : $content;
 				if ( $content !== '' && $content !== false ) {
 					self::cacheContent( $url, $content );
 				}
