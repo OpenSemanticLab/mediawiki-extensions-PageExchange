@@ -47,7 +47,7 @@ class PXPackagesListAPI extends ApiQueryBase {
 				'filedirectories' => $fileDirectories
 			] );
 			foreach ( $errors as &$error ) {
-				ApiResult::setSubelementsList( $error, [ 'url', 'error' ] );
+				ApiResult::setSubelementsList( $error, [ 'url', 'package', 'globalid', 'error' ] );
 			}
 			unset( $error );
 			ApiResult::setIndexedTagName( $errors, 'error' );
@@ -260,6 +260,14 @@ class PXPackagesListAPI extends ApiQueryBase {
 			} catch ( MWException $e ) {
 				$errors[] = [ 'url' => $packageFile->getURL(), 'error' => $e->getMessage() ];
 				continue;
+			}
+			foreach ( $packageFile->getPackageErrors() as $packageError ) {
+				$errors[] = [
+					'url' => $packageFile->getURL(),
+					'package' => $packageError['name'],
+					'globalid' => $packageError['globalid'],
+					'error' => $packageError['error']
+				];
 			}
 			foreach ( $packages as $package ) {
 				$baseURL = $package->getBaseURL();

@@ -60,5 +60,11 @@
 	"pageexchange-packagenotexists": "Error: No package with ID \"$1\" exists.",
 	"pageexchange-packagealreadyinstalled": "Package with ID \"$1\" is already installed",
 	"pageexchange-packagenotavailable": "Error: The package with ID \"$1\" is not available in any configured package file, so it cannot be updated.",
-	"pageexchange-packagefileerror": "Could not load the package file $1: $2"
+	"pageexchange-packagefileerror": "Could not load the package file $1: $2",
+	"pageexchange-packagesourceunavailable": "Error: The package with ID \"$1\" was installed from the package file $2, which could not be loaded. It was not updated from another file.",
+	"pageexchange-packageerror": "Could not load the package $1 from the package file $2: $3",
+	"pageexchange-packageloadfailed": "Error: The package with ID \"$1\" could not be loaded: $2",
+	"pageexchange-packagenotfoundincomplete": "Error: The package with ID \"$1\" was not found, but $2 package file(s) or package(s) could not be loaded, so it may be defined there.",
+	"pageexchange-packagesourceambiguous": "The package with ID \"$1\" is defined in several package files ($2) and its source was not recorded. The last one was used.",
+	"pageexchange-packagesourcechanged": "The package with ID \"$1\" was updated from a different package file than before. Previous source: $2. New source: $3."
 }

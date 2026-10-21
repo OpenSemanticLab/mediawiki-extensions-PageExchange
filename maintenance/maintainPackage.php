@@ -159,6 +159,9 @@ class PXMaintainPackage extends \Maintenance {
 		foreach ( $packageFiles as $fileNum => $url ) {
 			$pxFile = PXPackageFile::init( $url, -1, $fileNum + 1, $this->mInstalledExtensions, $installedPackageIDs );
 			$packages = $pxFile->getAllPackages( $this->getUser() );
+			foreach ( $pxFile->getPackageErrors() as $packageError ) {
+				$this->output( "Error in package {$packageError['name']} of file {$pxFile->getURL()}: {$packageError['error']}\n" );
+			}
 			foreach ( $packages as $package ) {
 				if ( $package->getGlobalID() == $packageID ) {
 					return $pxFile->getPackage( $package->getName(), $this->getUser() );
@@ -172,6 +175,9 @@ class PXMaintainPackage extends \Maintenance {
 			foreach ( $curPackageFiles as $fileNum => $packageURL ) {
 				$pxFile = PXPackageFile::init( $packageURL, $dirNum + 1, $fileNum + 1, $this->mInstalledExtensions, $installedPackageIDs );
 				$packages = $pxFile->getAllPackages( $this->getUser() );
+				foreach ( $pxFile->getPackageErrors() as $packageError ) {
+					$this->output( "Error in package {$packageError['name']} of file {$pxFile->getURL()}: {$packageError['error']}\n" );
+				}
 				foreach ( $packages as $package ) {
 					if ( $package->getGlobalID() == $packageID ) {
 						return $pxFile->getPackage( $package->getName(), $this->getUser() );
@@ -206,6 +212,9 @@ class PXMaintainPackage extends \Maintenance {
 
 		foreach ( $pxFiles as $pxFile ) {
 			$packages = $pxFile->getAllPackages( $this->getUser() );
+			foreach ( $pxFile->getPackageErrors() as $packageError ) {
+				$this->output( "Error in package {$packageError['name']} of file {$pxFile->getURL()}: {$packageError['error']}\n" );
+			}
 			foreach ( $packages as $remotePackage ) {
 				$this->loadRemotePackage( $remotePackage );
 			}
@@ -222,7 +231,7 @@ class PXMaintainPackage extends \Maintenance {
 				$installedPackage->getGlobalID() !== null &&
 				$installedPackage->getGlobalID() == $remotePackage->getGlobalID()
 			) {
-				$installedPackage->setAssociatedRemotePackage( $remotePackage );
+				$installedPackage->offerRemotePackage( $remotePackage );
 				return;
 			}
 		}

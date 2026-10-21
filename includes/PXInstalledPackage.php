@@ -12,6 +12,7 @@ class PXInstalledPackage extends PXPackage {
 
 	private $mID;
 	private $mAssociatedRemotePackage;
+	private $mStoredPackageFileURL;
 	private $mUnmatchedRemotePages = [];
 
 	public static function newFromDB( $dbRow, $user ) {
@@ -22,6 +23,9 @@ class PXInstalledPackage extends PXPackage {
 
 		$package->mName = $dbRow['pxp_name'];
 		$package->mID = $dbRow['pxp_id'];
+		if ( is_object( $packageData ) && isset( $packageData->packageFileURL ) && is_string( $packageData->packageFileURL ) ) {
+			$package->mStoredPackageFileURL = $packageData->packageFileURL;
+		}
 		$package->mUser = $user;
 		if ( $packageData === null ) {
 			$package->mInstallPending = true;
@@ -32,6 +36,29 @@ class PXInstalledPackage extends PXPackage {
 
 	public function getAssociatedRemotePackage() {
 		return $this->mAssociatedRemotePackage;
+	}
+
+	/**
+	 * The URL of the package file this package was installed or last updated from,
+	 * or null for packages installed before that URL was stored.
+	 */
+	public function getStoredPackageFileURL() {
+		return $this->mStoredPackageFileURL;
+	}
+
+	/**
+	 * Associates a remote package, unless one from the stored package file is already associated.
+	 * Without a stored URL the last offered remote package wins.
+	 */
+	public function offerRemotePackage( $remotePackage ) {
+		if (
+			$this->mStoredPackageFileURL !== null &&
+			$this->mAssociatedRemotePackage !== null &&
+			$this->mAssociatedRemotePackage->getPackageFileURL() === $this->mStoredPackageFileURL
+		) {
+			return;
+		}
+		$this->setAssociatedRemotePackage( $remotePackage );
 	}
 
 	public function setAssociatedRemotePackage( $remotePackage ) {

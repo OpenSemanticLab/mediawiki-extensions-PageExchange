@@ -4,6 +4,9 @@ class PXUpdatePackageAPI extends ApiBase {
 
 	private $mInstalledExtensions = [];
 	private $mInstalledPackages = [];
+	private $mFailedFiles = [];
+	private $mPackageErrors = [];
+	private $mDefiningFiles = [];
 
 	public function __construct( $query, $moduleName ) {
 		parent::__construct( $query, $moduleName );
@@ -31,7 +34,38 @@ class PXUpdatePackageAPI extends ApiBase {
 		if ( $package == null ) {
 			$this->dieWithError( [ 'pageexchange-packagenotexists', $packageID ], 'packagenotexists' );
 		}
-		if ( $package->getAssociatedRemotePackage() === null ) {
+		$storedURL = $package->getStoredPackageFileURL();
+		$remotePackage = $package->getAssociatedRemotePackage();
+		if ( $storedURL !== null ) {
+			if ( in_array( $storedURL, $this->mFailedFiles, true ) ) {
+				$this->dieWithError( [ 'pageexchange-packagesourceunavailable', $packageID, $storedURL ], 'packagesourceunavailable' );
+			}
+			foreach ( $this->mPackageErrors as $packageError ) {
+				if ( $packageError['globalid'] !== null && (string)$packageError['globalid'] === (string)$packageID && $packageError['file'] === $storedURL ) {
+					$this->dieWithError( [ 'pageexchange-packageloadfailed', $packageID, $packageError['error'] ], 'packageloadfailed' );
+				}
+			}
+			if ( $remotePackage !== null && $remotePackage->getPackageFileURL() !== $storedURL ) {
+				$this->addWarning( [ 'pageexchange-packagesourcechanged', $packageID, $storedURL, $remotePackage->getPackageFileURL() ] );
+			}
+		} elseif ( $remotePackage !== null && count( $this->mDefiningFiles[$packageID] ?? [] ) > 1 ) {
+			$this->addWarning( [ 'pageexchange-packagesourceambiguous', $packageID, implode( ', ', $this->mDefiningFiles[$packageID] ) ] );
+		}
+		if ( $remotePackage === null ) {
+			// Not found in any readable file: name the real cause if there is one.
+			$nullIDErrors = 0;
+			foreach ( $this->mPackageErrors as $packageError ) {
+				if ( $packageError['globalid'] !== null && (string)$packageError['globalid'] === (string)$packageID ) {
+					$this->dieWithError( [ 'pageexchange-packageloadfailed', $packageID, $packageError['error'] ], 'packageloadfailed' );
+				}
+				if ( $packageError['globalid'] === null ) {
+					$nullIDErrors++;
+				}
+			}
+			$incompleteCount = count( $this->mFailedFiles ) + $nullIDErrors;
+			if ( $incompleteCount > 0 ) {
+				$this->dieWithError( [ 'pageexchange-packagenotfoundincomplete', $packageID, $incompleteCount ], 'packagenotfoundincomplete' );
+			}
 			$this->dieWithError( [ 'pageexchange-packagenotavailable', $packageID ], 'packagenotavailable' );
 		}
 		$package->update( $user );
@@ -49,6 +83,7 @@ class PXUpdatePackageAPI extends ApiBase {
 			try {
 				$pxFiles[] = PXPackageFile::init( $url, -1, $i + 1, $this->mInstalledExtensions, $installedPackageIDs );
 			} catch ( MWException $e ) {
+				$this->mFailedFiles[] = $url;
 				$this->addWarning( [ 'pageexchange-packagefileerror', $url, $e->getMessage() ] );
 			}
 		}
@@ -60,6 +95,7 @@ class PXUpdatePackageAPI extends ApiBase {
 				try {
 					$pxFiles[] = PXPackageFile::init( $packageURL, $dirNum + 1, $fileNum + 1, $this->mInstalledExtensions, $installedPackageIDs );
 				} catch ( MWException $e ) {
+					$this->mFailedFiles[] = $packageURL;
 					$this->addWarning( [ 'pageexchange-packagefileerror', $packageURL, $e->getMessage() ] );
 				}
 			}
@@ -69,8 +105,14 @@ class PXUpdatePackageAPI extends ApiBase {
 			try {
 				$packages = $pxFile->getAllPackages( $this->getUser() );
 			} catch ( MWException $e ) {
+				$this->mFailedFiles[] = $pxFile->getURL();
 				$this->addWarning( [ 'pageexchange-packagefileerror', $pxFile->getURL(), $e->getMessage() ] );
 				continue;
+			}
+			foreach ( $pxFile->getPackageErrors() as $packageError ) {
+				$packageError['file'] = $pxFile->getURL();
+				$this->mPackageErrors[] = $packageError;
+				$this->addWarning( [ 'pageexchange-packageerror', $packageError['name'], $pxFile->getURL(), $packageError['error'] ] );
 			}
 			foreach ( $packages as $remotePackage ) {
 				$this->loadRemotePackage( $remotePackage );
@@ -85,7 +127,11 @@ class PXUpdatePackageAPI extends ApiBase {
 				$installedPackage->getGlobalID() !== null &&
 				$installedPackage->getGlobalID() == $remotePackage->getGlobalID()
 			) {
-				$installedPackage->setAssociatedRemotePackage( $remotePackage );
+				$definingFiles = $this->mDefiningFiles[$remotePackage->getGlobalID()] ?? [];
+				if ( !in_array( $remotePackage->getPackageFileURL(), $definingFiles, true ) ) {
+					$this->mDefiningFiles[$remotePackage->getGlobalID()][] = $remotePackage->getPackageFileURL();
+				}
+				$installedPackage->offerRemotePackage( $remotePackage );
 				return;
 			}
 		}

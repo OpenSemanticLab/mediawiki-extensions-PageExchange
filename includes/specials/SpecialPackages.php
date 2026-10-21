@@ -177,6 +177,11 @@ class SpecialPackages extends SpecialPage {
 				);
 				continue;
 			}
+			foreach ( $packageFile->getPackageErrors() as $packageError ) {
+				$this->getOutput()->addHtml( Html::element( 'div', [ 'class' => 'error' ],
+					"Error in package {$packageError['name']} of file {$packageFile->getURL()}: " . $packageError['error'] )
+				);
+			}
 			foreach ( $packages as $remotePackage ) {
 				$this->loadRemotePackage( $remotePackage );
 			}
@@ -190,7 +195,7 @@ class SpecialPackages extends SpecialPage {
 				$installedPackage->getGlobalID() !== null &&
 				$installedPackage->getGlobalID() == $remotePackage->getGlobalID()
 			) {
-				$installedPackage->setAssociatedRemotePackage( $remotePackage );
+				$installedPackage->offerRemotePackage( $remotePackage );
 				return;
 			}
 		}

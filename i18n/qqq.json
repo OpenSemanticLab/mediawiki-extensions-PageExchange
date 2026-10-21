@@ -63,5 +63,11 @@
 	"pageexchange-packagenotexists": "An error message when no package exists",
 	"pageexchange-packagealreadyinstalled": "An info message that package is already installed",
 	"pageexchange-packagenotavailable": "An error message when an installed package is not found in any configured package file. Parameters:\n* $1 - the global ID of the package",
-	"pageexchange-packagefileerror": "An API warning when a package file could not be loaded. Parameters:\n* $1 - the URL of the package file\n* $2 - the error message"
+	"pageexchange-packagefileerror": "An API warning when a package file could not be loaded. Parameters:\n* $1 - the URL of the package file\n* $2 - the error message",
+	"pageexchange-packagesourceunavailable": "An error message when an installed package cannot be updated because the package file it was installed from could not be loaded. Parameters:\n* $1 - the global ID of the package\n* $2 - the URL of the package file",
+	"pageexchange-packageerror": "An API warning when one package in a package file could not be loaded. Parameters:\n* $1 - the name of the package\n* $2 - the URL of the package file\n* $3 - the error message",
+	"pageexchange-packageloadfailed": "An error message when the requested package is defined in a package file but could not be loaded. Parameters:\n* $1 - the global ID of the package\n* $2 - the error message",
+	"pageexchange-packagenotfoundincomplete": "An error message when the requested package was not found and some package files or packages could not be loaded. Parameters:\n* $1 - the global ID of the package\n* $2 - the number of package files and packages that could not be loaded",
+	"pageexchange-packagesourceambiguous": "An API warning when a package without a recorded source is defined in several package files. Parameters:\n* $1 - the global ID of the package\n* $2 - comma separated list of package file URLs",
+	"pageexchange-packagesourcechanged": "An API warning when a package is updated from a different package file than the one it was installed from. Parameters:\n* $1 - the global ID of the package\n* $2 - the URL of the previous package file\n* $3 - the URL of the new package file"
 }

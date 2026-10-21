@@ -14,6 +14,7 @@ class PXPackageFile {
 	private $mFileNum;
 	private $mInstalledExtensions;
 	private $mInstalledPackages;
+	private $mPackageErrors = [];
 
 	public static function init( $url, $directoryNum, $fileNum, $installedExtensions, $installedPackages ) {
 		$json = PXUtils::getWebPageContents( $url );
@@ -54,21 +55,41 @@ class PXPackageFile {
 
 	public function getAllPackages( $user ) {
 		$packages = [];
+		$this->mPackageErrors = [];
 		foreach ( $this->mData->packages as $name => $packageData ) {
-			$package = PXRemotePackage::newFromData(
-				$this->mDirectoryNum,
-				$this->mFileNum,
-				$this->mData,
-				$name,
-				$packageData,
-				$this->mInstalledExtensions,
-				$this->mInstalledPackages,
-				$user
-			);
+			try {
+				$package = PXRemotePackage::newFromData(
+					$this->mDirectoryNum,
+					$this->mFileNum,
+					$this->mData,
+					$name,
+					$packageData,
+					$this->mInstalledExtensions,
+					$this->mInstalledPackages,
+					$user
+				);
+			} catch ( MWException $e ) {
+				// Skip this package only, the other packages in the file stay usable.
+				$this->mPackageErrors[] = [
+					'name' => $name,
+					'globalid' => $packageData->globalID ?? null,
+					'error' => $e->getMessage()
+				];
+				continue;
+			}
 			$package->setPackageFileURL( $this->mURL );
 			$packages[] = $package;
 		}
 		return $packages;
+	}
+
+	/**
+	 * Packages that could not be loaded by the last call of getAllPackages().
+	 *
+	 * @return array[] Each with the keys name, globalid (or null) and error
+	 */
+	public function getPackageErrors() {
+		return $this->mPackageErrors;
 	}
 
 	function getURL() {
