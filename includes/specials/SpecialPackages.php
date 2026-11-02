@@ -52,6 +52,7 @@ class SpecialPackages extends SpecialPage {
 		} elseif ( $packageName !== null ) {
 			$package = null;
 			$this->mInstalledPackages = PXUtils::getInstalledPackages( $user );
+			$this->loadJobCounts();
 			$this->loadAllFiles();
 			foreach ( $this->mInstalledPackages as $installedPackage ) {
 				if ( $installedPackage->getName() == $packageName ) {
@@ -78,10 +79,23 @@ class SpecialPackages extends SpecialPage {
 			}
 		} else {
 			$this->mInstalledPackages = PXUtils::getInstalledPackages( $user );
+			$this->loadJobCounts();
 			$this->loadAllFiles();
 			$text = $this->displayAll();
 		}
 		$out->addHTML( $text );
+	}
+
+	private function loadJobCounts() {
+		$jobCounts = PXUtils::getPackageJobCounts();
+		if ( $jobCounts === null ) {
+			return;
+		}
+		foreach ( $this->mInstalledPackages as $installedPackage ) {
+			$installedPackage->setJobCounts(
+				$jobCounts['packages'][$installedPackage->getGlobalID()] ?? [ 'queued' => 0, 'claimed' => 0, 'failed' => 0 ]
+			);
+		}
 	}
 
 	private function loadAllFiles() {
@@ -177,6 +191,11 @@ class SpecialPackages extends SpecialPage {
 				);
 				continue;
 			}
+			foreach ( $packageFile->getPackageErrors() as $packageError ) {
+				$this->getOutput()->addHtml( Html::element( 'div', [ 'class' => 'error' ],
+					"Error in package {$packageError['name']} of file {$packageFile->getURL()}: " . $packageError['error'] )
+				);
+			}
 			foreach ( $packages as $remotePackage ) {
 				$this->loadRemotePackage( $remotePackage );
 			}
@@ -190,7 +209,7 @@ class SpecialPackages extends SpecialPage {
 				$installedPackage->getGlobalID() !== null &&
 				$installedPackage->getGlobalID() == $remotePackage->getGlobalID()
 			) {
-				$installedPackage->setAssociatedRemotePackage( $remotePackage );
+				$installedPackage->offerRemotePackage( $remotePackage );
 				return;
 			}
 		}

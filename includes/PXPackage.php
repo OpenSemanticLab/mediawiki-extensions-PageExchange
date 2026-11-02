@@ -29,9 +29,11 @@ abstract class PXPackage {
 	protected $mGitHubAccount;
 	protected $mGitHubRepo;
 	protected $mGitHubBranch;
+	protected $mBaseURL;
 
 	public function populateWithData( $fileData, $packageData ) {
 		$baseURL = self::getPackageField( 'baseURL', $fileData, $packageData );
+		$this->mBaseURL = $baseURL;
 		$pagesData = self::getPackageField( 'pages', $fileData, $packageData, false );
 		if ( $pagesData !== null ) {
 			foreach ( $pagesData as $pageData ) {
@@ -113,6 +115,10 @@ abstract class PXPackage {
 
 	public function getGlobalID() {
 		return $this->mGlobalID;
+	}
+
+	public function getBaseURL() {
+		return $this->mBaseURL;
 	}
 
 	public function getCardStatusClass() {
@@ -257,6 +263,9 @@ END;
 			throw new MWException( "No data found at https://github.com/$accountName/$repositoryName" );
 		}
 		$this->mGitHubBranch = $defaultBranch;
+		if ( $this->mBaseURL === null ) {
+			$this->mBaseURL = "https://raw.githubusercontent.com/$accountName/$repositoryName/$defaultBranch/";
+		}
 		$gitHubPagesData = json_decode( $gitHubPagesJSON );
 		$gitHubPageNames = [];
 		foreach ( $gitHubPagesData->tree as $gitHubPageData ) {

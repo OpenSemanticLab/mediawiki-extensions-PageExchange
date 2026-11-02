@@ -12,6 +12,9 @@ class PXInstalledPackage extends PXPackage {
 
 	private $mID;
 	private $mAssociatedRemotePackage;
+	private $mStoredPackageFileURL;
+	private $mJobCounts;
+	private $mInvalidData;
 	private $mUnmatchedRemotePages = [];
 
 	public static function newFromDB( $dbRow, $user ) {
@@ -22,12 +25,66 @@ class PXInstalledPackage extends PXPackage {
 
 		$package->mName = $dbRow['pxp_name'];
 		$package->mID = $dbRow['pxp_id'];
+		if ( is_object( $packageData ) && isset( $packageData->packageFileURL ) && is_string( $packageData->packageFileURL ) ) {
+			$package->mStoredPackageFileURL = $packageData->packageFileURL;
+		}
 		$package->mUser = $user;
 		if ( $packageData === null ) {
-			$package->mInstallPending = true;
+			$package->mInvalidData = true;
 		}
 
 		return $package;
+	}
+
+	/**
+	 * @param array|null $jobCounts [ 'queued' => n, 'claimed' => n, 'failed' => n ] for this package,
+	 *  or null if the job state is unknown
+	 */
+	public function setJobCounts( $jobCounts ) {
+		$this->mJobCounts = $jobCounts;
+	}
+
+	private function getJobStateHTML() {
+		if ( $this->mJobCounts === null ) {
+			return '';
+		}
+		$html = '';
+		if ( $this->mJobCounts['queued'] + $this->mJobCounts['claimed'] > 0 ) {
+			$html .= $this->displayInfoMessage( wfMessage( 'pageexchange-package-jobsunfinished' )
+				->numParams( $this->mJobCounts['queued'], $this->mJobCounts['claimed'] )->parse() );
+		}
+		if ( $this->mJobCounts['failed'] > 0 ) {
+			$html .= $this->displayWarningMessage( wfMessage( 'pageexchange-package-jobsfailed' )
+				->numParams( $this->mJobCounts['failed'] )->parse() );
+		}
+		return $html;
+	}
+
+	public function getAssociatedRemotePackage() {
+		return $this->mAssociatedRemotePackage;
+	}
+
+	/**
+	 * The URL of the package file this package was installed or last updated from,
+	 * or null for packages installed before that URL was stored.
+	 */
+	public function getStoredPackageFileURL() {
+		return $this->mStoredPackageFileURL;
+	}
+
+	/**
+	 * Associates a remote package, unless one from the stored package file is already associated.
+	 * Without a stored URL the last offered remote package wins.
+	 */
+	public function offerRemotePackage( $remotePackage ) {
+		if (
+			$this->mStoredPackageFileURL !== null &&
+			$this->mAssociatedRemotePackage !== null &&
+			$this->mAssociatedRemotePackage->getPackageFileURL() === $this->mStoredPackageFileURL
+		) {
+			return;
+		}
+		$this->setAssociatedRemotePackage( $remotePackage );
 	}
 
 	public function setAssociatedRemotePackage( $remotePackage ) {
@@ -51,10 +108,11 @@ class PXInstalledPackage extends PXPackage {
 
 	public function getCardBodyHTML() {
 		$packageHTML = '';
-		if ( !empty( $this->mInstallPending ) ) {
-			$packageHTML .= $this->displayInfoMessage( '&#x23F3; Install running — page creation jobs are still being processed.' );
+		if ( !empty( $this->mInvalidData ) ) {
+			$packageHTML .= $this->displayWarningMessage( wfMessage( 'pageexchange-package-invaliddata' )->parse() );
 			return $packageHTML;
 		}
+		$packageHTML .= $this->getJobStateHTML();
 		$remotePackage = $this->mAssociatedRemotePackage;
 		if ( $remotePackage !== null && $remotePackage->mVersion !== $this->mVersion ) {
 			$packageHTML .= $this->displayInfoMessage( wfMessage( 'pageexchange-package-morerecent' )->parse() );
@@ -152,6 +210,7 @@ END;
 		$remoteDiffersFromInstalled = false;
 		$packageHTML = '';
 		$remotePackage = $this->mAssociatedRemotePackage;
+		$packageHTML .= $this->getJobStateHTML();
 		if ( $remotePackage == null ) {
 			$packageHTML .= '<div class="errorbox">' .
 				'The external definition of this package can no longer be found.' .
@@ -316,6 +375,9 @@ END;
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_PRIMARY );
 
 		$remotePackage = $this->mAssociatedRemotePackage;
+		if ( $remotePackage === null ) {
+			throw new MWException( wfMessage( 'pageexchange-packagenotavailable', $this->getGlobalID() )->text() );
+		}
 		$updateValues = [
 			'pxp_name' => $remotePackage->mName,
 			'pxp_package_data' => json_encode( $remotePackage->getPackageData() )
@@ -339,7 +401,7 @@ END;
 		$this->mAssociatedRemotePackage->prefetchPageContents();
 
 		foreach ( $this->mAssociatedRemotePackage->mPages as $page ) {
-			$page->createOrUpdateWikiPage( $user, $this->mName, false );
+			$page->createOrUpdateWikiPage( $user, $this->mName, false, $this->mGlobalID );
 		}
 
 		$this->logAction( 'updatepackage', $user );

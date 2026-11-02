@@ -42,6 +42,35 @@ class PXCreatePageJob extends Job {
 			return false;
 		}
 
+		// Fetch everything before saving anything, so that a failed fetch leaves the page,
+		// its slots and its file unchanged. An empty response (200) is valid content.
+		$pageText = null;
+		if ( array_key_exists( 'page_url', $this->params ) ) {
+			$pageText = PXUtils::getWebPageContentsOrFail( $this->params['page_url'] );
+			if ( $pageText === false ) {
+				$this->error = 'pageExchangeCreatePage: Could not fetch ' . $this->params['page_url'];
+				return false;
+			}
+		}
+		$slotTexts = [];
+		if ( array_key_exists( 'slots', $this->params ) ) {
+			foreach ( $this->params['slots'] as $slotName => $slot ) {
+				$slotTexts[$slotName] = PXUtils::getWebPageContentsOrFail( $slot->mURL );
+				if ( $slotTexts[$slotName] === false ) {
+					$this->error = 'pageExchangeCreatePage: Could not fetch ' . $slot->mURL;
+					return false;
+				}
+			}
+		}
+		$fileContents = null;
+		if ( array_key_exists( 'file_url', $this->params ) ) {
+			$fileContents = PXUtils::getWebPageContentsOrFail( $this->params['file_url'] );
+			if ( $fileContents === false ) {
+				$this->error = 'pageExchangeCreatePage: Could not fetch ' . $this->params['file_url'];
+				return false;
+			}
+		}
+
 		$userID = $this->params['user_id'];
 		if ( class_exists( 'MediaWiki\User\UserFactory' ) ) {
 			// MW 1.35+
@@ -55,8 +84,7 @@ class PXCreatePageJob extends Job {
 		$updater = $wikiPage->newPageUpdater( $user );
 
 		if ( array_key_exists( 'page_url', $this->params ) ) {
-			$pageText = PXUtils::getWebPageContents( $this->params['page_url'] );
-			if ( $pageText === '' || $pageText === false || $pageText === null ) {
+			if ( $pageText === '' ) {
 				$msg = 'PageExchange: empty content fetched for page "' .
 					$this->title->getPrefixedDBkey() . '" from ' . $this->params['page_url'];
 				// Empty main slot is expected for pages with named slots only (e.g. jsondata, jsonschema)
@@ -87,8 +115,8 @@ class PXCreatePageJob extends Job {
 						->getDefaultModel( $this->title );
 				}
 
-				$slotText = PXUtils::getWebPageContents( $slot->mURL );
-				if ( $slotText === '' || $slotText === false || $slotText === null ) {
+				$slotText = $slotTexts[$slotName];
+				if ( $slotText === '' ) {
 					wfLogWarning( 'PageExchange: empty slot "' . $slotName . '" fetched for page "' .
 						$this->title->getPrefixedDBkey() . '" from ' . $slot->mURL );
 				}
@@ -156,19 +184,17 @@ class PXCreatePageJob extends Job {
 			CargoDeclare::$settings['userID'] = $userID;
 		}
 
-		if ( !array_key_exists( 'file_url', $this->params ) ) {
+		if ( $fileContents === null ) {
 			return true;
 		}
 
-		$fileURL = $this->params['file_url'];
-		$this->createOrUpdateFile( $user, $editSummary, $fileURL );
+		$this->createOrUpdateFile( $user, $editSummary, $fileContents );
 
 		return true;
 	}
 
-	public function createOrUpdateFile( $user, $editSummary, $fileURL ) {
+	public function createOrUpdateFile( $user, $editSummary, $fileContents ) {
 		// Code copied largely from /maintenance/importImages.php.
-		$fileContents = PXUtils::getWebPageContents( $fileURL );
 		$tempFile = tmpfile();
 		fwrite( $tempFile, $fileContents );
 		$tempFilePath = stream_get_meta_data( $tempFile )['uri'];
