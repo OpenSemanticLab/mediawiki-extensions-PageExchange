@@ -31,6 +31,9 @@ use MediaWiki\MediaWikiServices;
  */
 class PXMaintainPackage extends \Maintenance {
 
+	private $mPackageErrors = [];
+	private $mDefiningFiles = [];
+
 	public function __construct() {
 		parent::__construct();
 
@@ -111,6 +114,13 @@ class PXMaintainPackage extends \Maintenance {
 					}
 					if ( $package == null ) {
 						throw new MWException( wfMessage( 'pageexchange-packagenotexists', $packageID ) );
+					}
+					$check = $package->checkUpdateSource( [], $this->mPackageErrors, $this->mDefiningFiles );
+					foreach ( $check['warnings'] as $warning ) {
+						$this->output( wfMessage( $warning[0], ...array_slice( $warning, 1 ) )->text() . "\n" );
+					}
+					if ( $check['error'] !== null ) {
+						$this->fatalError( wfMessage( $check['error'][0], ...array_slice( $check['error'], 1 ) )->text() );
 					}
 					$package->update( $user );
 				}
@@ -223,6 +233,8 @@ class PXMaintainPackage extends \Maintenance {
 			$packages = $pxFile->getAllPackages( $this->getUser() );
 			foreach ( $pxFile->getPackageErrors() as $packageError ) {
 				$this->output( "Error in package {$packageError['name']} of file {$pxFile->getURL()}: {$packageError['error']}\n" );
+				$packageError['file'] = $pxFile->getURL();
+				$this->mPackageErrors[] = $packageError;
 			}
 			foreach ( $packages as $remotePackage ) {
 				$this->loadRemotePackage( $remotePackage );
@@ -240,6 +252,10 @@ class PXMaintainPackage extends \Maintenance {
 				$installedPackage->getGlobalID() !== null &&
 				$installedPackage->getGlobalID() == $remotePackage->getGlobalID()
 			) {
+				$definingFiles = $this->mDefiningFiles[$remotePackage->getGlobalID()] ?? [];
+				if ( !in_array( $remotePackage->getPackageFileURL(), $definingFiles, true ) ) {
+					$this->mDefiningFiles[$remotePackage->getGlobalID()][] = $remotePackage->getPackageFileURL();
+				}
 				$installedPackage->offerRemotePackage( $remotePackage );
 				return;
 			}

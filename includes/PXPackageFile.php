@@ -25,6 +25,10 @@ class PXPackageFile {
 		if ( $fileData === null ) {
 			throw new MWException( 'Error: the file at ' . $url . ' contains invalid JSON.' );
 		}
+		if ( !is_object( $fileData ) || !isset( $fileData->packages ) ||
+			!( is_object( $fileData->packages ) || is_array( $fileData->packages ) ) ) {
+			throw new MWException( 'Error: the file at ' . $url . ' contains no valid list of packages.' );
+		}
 
 		$packageFile = new PXPackageFile();
 		$packageFile->mURL = $url;
@@ -38,7 +42,12 @@ class PXPackageFile {
 	}
 
 	public function getPackage( $packageName, $user ) {
-		$packageData = $this->mData->packages->$packageName;
+		$packages = $this->mData->packages;
+		$packageData = is_object( $packages ) ? ( $packages->$packageName ?? null ) : ( $packages[$packageName] ?? null );
+		$definitionError = self::getDefinitionError( $packageData );
+		if ( $definitionError !== null ) {
+			throw new MWException( $definitionError );
+		}
 		$package = PXRemotePackage::newFromData(
 			$this->mDirectoryNum,
 			$this->mFileNum,
@@ -57,6 +66,15 @@ class PXPackageFile {
 		$packages = [];
 		$this->mPackageErrors = [];
 		foreach ( $this->mData->packages as $name => $packageData ) {
+			$definitionError = self::getDefinitionError( $packageData );
+			if ( $definitionError !== null ) {
+				$this->mPackageErrors[] = [
+					'name' => $name,
+					'globalid' => is_object( $packageData ) && is_string( $packageData->globalID ?? null ) ? $packageData->globalID : null,
+					'error' => $definitionError
+				];
+				continue;
+			}
 			try {
 				$package = PXRemotePackage::newFromData(
 					$this->mDirectoryNum,
@@ -81,6 +99,20 @@ class PXPackageFile {
 			$packages[] = $package;
 		}
 		return $packages;
+	}
+
+	/**
+	 * @param mixed $packageData One decoded entry of the package list
+	 * @return string|null An error message if the entry cannot be a package definition
+	 */
+	private static function getDefinitionError( $packageData ) {
+		if ( !is_object( $packageData ) ) {
+			return 'invalid package definition';
+		}
+		if ( property_exists( $packageData, 'directoryStructure' ) && !is_object( $packageData->directoryStructure ) ) {
+			return 'invalid package definition';
+		}
+		return null;
 	}
 
 	/**

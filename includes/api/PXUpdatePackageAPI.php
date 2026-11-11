@@ -34,39 +34,12 @@ class PXUpdatePackageAPI extends ApiBase {
 		if ( $package == null ) {
 			$this->dieWithError( [ 'pageexchange-packagenotexists', $packageID ], 'packagenotexists' );
 		}
-		$storedURL = $package->getStoredPackageFileURL();
-		$remotePackage = $package->getAssociatedRemotePackage();
-		if ( $storedURL !== null ) {
-			if ( in_array( $storedURL, $this->mFailedFiles, true ) ) {
-				$this->dieWithError( [ 'pageexchange-packagesourceunavailable', $packageID, $storedURL ], 'packagesourceunavailable' );
-			}
-			foreach ( $this->mPackageErrors as $packageError ) {
-				if ( $packageError['globalid'] !== null && (string)$packageError['globalid'] === (string)$packageID && $packageError['file'] === $storedURL ) {
-					$this->dieWithError( [ 'pageexchange-packageloadfailed', $packageID, $packageError['error'] ], 'packageloadfailed' );
-				}
-			}
-			if ( $remotePackage !== null && $remotePackage->getPackageFileURL() !== $storedURL ) {
-				$this->addWarning( [ 'pageexchange-packagesourcechanged', $packageID, $storedURL, $remotePackage->getPackageFileURL() ] );
-			}
-		} elseif ( $remotePackage !== null && count( $this->mDefiningFiles[$packageID] ?? [] ) > 1 ) {
-			$this->addWarning( [ 'pageexchange-packagesourceambiguous', $packageID, implode( ', ', $this->mDefiningFiles[$packageID] ) ] );
+		$check = $package->checkUpdateSource( $this->mFailedFiles, $this->mPackageErrors, $this->mDefiningFiles );
+		foreach ( $check['warnings'] as $warning ) {
+			$this->addWarning( $warning );
 		}
-		if ( $remotePackage === null ) {
-			// Not found in any readable file: name the real cause if there is one.
-			$nullIDErrors = 0;
-			foreach ( $this->mPackageErrors as $packageError ) {
-				if ( $packageError['globalid'] !== null && (string)$packageError['globalid'] === (string)$packageID ) {
-					$this->dieWithError( [ 'pageexchange-packageloadfailed', $packageID, $packageError['error'] ], 'packageloadfailed' );
-				}
-				if ( $packageError['globalid'] === null ) {
-					$nullIDErrors++;
-				}
-			}
-			$incompleteCount = count( $this->mFailedFiles ) + $nullIDErrors;
-			if ( $incompleteCount > 0 ) {
-				$this->dieWithError( [ 'pageexchange-packagenotfoundincomplete', $packageID, $incompleteCount ], 'packagenotfoundincomplete' );
-			}
-			$this->dieWithError( [ 'pageexchange-packagenotavailable', $packageID ], 'packagenotavailable' );
+		if ( $check['error'] !== null ) {
+			$this->dieWithError( $check['error'], $check['code'] );
 		}
 		$package->update( $user );
 	}

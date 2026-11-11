@@ -73,6 +73,75 @@ class PXInstalledPackage extends PXPackage {
 	}
 
 	/**
+	 * Decides whether this package may be updated from the package files that were loaded.
+	 *
+	 * @param string[] $failedFiles URLs of package files that could not be loaded
+	 * @param array[] $packageErrors Package load errors, each with the keys globalid and file
+	 * @param array $definingFiles [ globalID => list of package file URLs defining it ]
+	 * @return array [ 'error' => [ message key, params... ] or null, 'code' => API error code or null,
+	 *  'warnings' => list of [ message key, params... ] ]
+	 */
+	public function checkUpdateSource( array $failedFiles, array $packageErrors, array $definingFiles ) {
+		$packageID = (string)$this->getGlobalID();
+		$storedURL = $this->mStoredPackageFileURL;
+		$remotePackage = $this->mAssociatedRemotePackage;
+		$warnings = [];
+		if ( $storedURL !== null ) {
+			if ( in_array( $storedURL, $failedFiles, true ) ) {
+				return [
+					'error' => [ 'pageexchange-packagesourceunavailable', $packageID, $storedURL ],
+					'code' => 'packagesourceunavailable',
+					'warnings' => $warnings
+				];
+			}
+			foreach ( $packageErrors as $packageError ) {
+				if ( $packageError['globalid'] !== null && (string)$packageError['globalid'] === $packageID && $packageError['file'] === $storedURL ) {
+					return [
+						'error' => [ 'pageexchange-packageloadfailed', $packageID, $packageError['error'] ],
+						'code' => 'packageloadfailed',
+						'warnings' => $warnings
+					];
+				}
+			}
+			if ( $remotePackage !== null && $remotePackage->getPackageFileURL() !== $storedURL ) {
+				$warnings[] = [ 'pageexchange-packagesourcechanged', $packageID, $storedURL, $remotePackage->getPackageFileURL() ];
+			}
+		} elseif ( $remotePackage !== null && count( $definingFiles[$packageID] ?? [] ) > 1 ) {
+			$warnings[] = [ 'pageexchange-packagesourceambiguous', $packageID, implode( ', ', $definingFiles[$packageID] ) ];
+		}
+		if ( $remotePackage === null ) {
+			// Not found in any readable file: name the real cause if there is one.
+			$nullIDErrors = 0;
+			foreach ( $packageErrors as $packageError ) {
+				if ( $packageError['globalid'] !== null && (string)$packageError['globalid'] === $packageID ) {
+					return [
+						'error' => [ 'pageexchange-packageloadfailed', $packageID, $packageError['error'] ],
+						'code' => 'packageloadfailed',
+						'warnings' => $warnings
+					];
+				}
+				if ( $packageError['globalid'] === null ) {
+					$nullIDErrors++;
+				}
+			}
+			$incompleteCount = count( $failedFiles ) + $nullIDErrors;
+			if ( $incompleteCount > 0 ) {
+				return [
+					'error' => [ 'pageexchange-packagenotfoundincomplete', $packageID, $incompleteCount ],
+					'code' => 'packagenotfoundincomplete',
+					'warnings' => $warnings
+				];
+			}
+			return [
+				'error' => [ 'pageexchange-packagenotavailable', $packageID ],
+				'code' => 'packagenotavailable',
+				'warnings' => $warnings
+			];
+		}
+		return [ 'error' => null, 'code' => null, 'warnings' => $warnings ];
+	}
+
+	/**
 	 * Associates a remote package, unless one from the stored package file is already associated.
 	 * Without a stored URL the last offered remote package wins.
 	 */

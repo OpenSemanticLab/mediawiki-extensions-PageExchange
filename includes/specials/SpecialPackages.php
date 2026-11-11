@@ -139,15 +139,15 @@ class SpecialPackages extends SpecialPage {
 				continue;
 			}
 			$data = json_decode( $json );
-			if ( $data === null || !property_exists( $data, 'packages' ) ) {
+			if ( !is_object( $data ) || !property_exists( $data, 'packages' ) || !( is_object( $data->packages ) || is_array( $data->packages ) ) ) {
 				continue;
 			}
 			foreach ( $data->packages as $pkgData ) {
-				if ( !property_exists( $pkgData, 'directoryStructure' ) ) {
+				if ( !is_object( $pkgData ) || !property_exists( $pkgData, 'directoryStructure' ) ) {
 					continue;
 				}
 				$ds = $pkgData->directoryStructure;
-				if ( !property_exists( $ds, 'service' ) || $ds->service !== 'GitHub' ) {
+				if ( !is_object( $ds ) || !property_exists( $ds, 'service' ) || $ds->service !== 'GitHub' ) {
 					continue;
 				}
 				if ( !property_exists( $ds, 'accountName' ) || !property_exists( $ds, 'repositoryName' ) ) {
