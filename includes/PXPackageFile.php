@@ -44,7 +44,7 @@ class PXPackageFile {
 	public function getPackage( $packageName, $user ) {
 		$packages = $this->mData->packages;
 		$packageData = is_object( $packages ) ? ( $packages->$packageName ?? null ) : ( $packages[$packageName] ?? null );
-		$definitionError = self::getDefinitionError( $packageData );
+		$definitionError = self::getDefinitionError( $packageData, $this->mData );
 		if ( $definitionError !== null ) {
 			throw new MWException( $definitionError );
 		}
@@ -66,7 +66,7 @@ class PXPackageFile {
 		$packages = [];
 		$this->mPackageErrors = [];
 		foreach ( $this->mData->packages as $name => $packageData ) {
-			$definitionError = self::getDefinitionError( $packageData );
+			$definitionError = self::getDefinitionError( $packageData, $this->mData );
 			if ( $definitionError !== null ) {
 				$this->mPackageErrors[] = [
 					'name' => $name,
@@ -103,9 +103,10 @@ class PXPackageFile {
 
 	/**
 	 * @param mixed $packageData One decoded entry of the package list
+	 * @param stdClass $fileData The decoded file, used by PXPackage::getPackageField as a fallback
 	 * @return string|null An error message if the entry cannot be a package definition
 	 */
-	private static function getDefinitionError( $packageData ) {
+	private static function getDefinitionError( $packageData, $fileData ) {
 		if ( !is_object( $packageData ) ) {
 			return 'invalid package definition';
 		}
@@ -118,6 +119,24 @@ class PXPackageFile {
 				if ( property_exists( $ds, $field ) && !is_string( $ds->$field ) ) {
 					return 'invalid package definition';
 				}
+			}
+		}
+		// The description is parsed as wikitext, which needs a string.
+		if ( property_exists( $packageData, 'description' ) && !is_string( $packageData->description ) ) {
+			return 'invalid package definition';
+		}
+		// Same lookup as PXPackage::getPackageField: the entry first, else the file data.
+		// A null value is not a problem for the URL fields.
+		foreach ( [ 'url', 'publisherURL' ] as $field ) {
+			if ( property_exists( $packageData, $field ) ) {
+				$value = $packageData->$field;
+			} elseif ( property_exists( $fileData, $field ) ) {
+				$value = $fileData->$field;
+			} else {
+				continue;
+			}
+			if ( $value !== null && !is_string( $value ) ) {
+				return 'invalid package definition';
 			}
 		}
 		return null;
