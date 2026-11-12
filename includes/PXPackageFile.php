@@ -112,6 +112,14 @@ class PXPackageFile {
 		if ( property_exists( $packageData, 'directoryStructure' ) && !is_object( $packageData->directoryStructure ) ) {
 			return 'invalid package definition';
 		}
+		$ds = $packageData->directoryStructure ?? null;
+		if ( $ds !== null && ( $ds->service ?? null ) == 'GitHub' ) {
+			foreach ( [ 'accountName', 'repositoryName' ] as $field ) {
+				if ( property_exists( $ds, $field ) && !is_string( $ds->$field ) ) {
+					return 'invalid package definition';
+				}
+			}
+		}
 		return null;
 	}
 

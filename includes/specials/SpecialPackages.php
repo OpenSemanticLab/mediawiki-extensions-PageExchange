@@ -150,7 +150,7 @@ class SpecialPackages extends SpecialPage {
 				if ( !is_object( $ds ) || !property_exists( $ds, 'service' ) || $ds->service !== 'GitHub' ) {
 					continue;
 				}
-				if ( !property_exists( $ds, 'accountName' ) || !property_exists( $ds, 'repositoryName' ) ) {
+				if ( !property_exists( $ds, 'accountName' ) || !property_exists( $ds, 'repositoryName' ) || !is_string( $ds->accountName ) || !is_string( $ds->repositoryName ) ) {
 					continue;
 				}
 				$gitHubTreeURLs[] = "https://api.github.com/repos/{$ds->accountName}/{$ds->repositoryName}/git/trees/main?recursive=1";

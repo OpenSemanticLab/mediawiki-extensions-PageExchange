@@ -102,6 +102,10 @@ abstract class PXPackage {
 			return $value;
 		}
 		if ( is_array( $value ) ) {
+			// Only strings and numbers can be escaped, other elements are dropped.
+			$value = array_values( array_filter( $value, static function ( $v ) {
+				return is_string( $v ) || is_int( $v ) || is_float( $v );
+			} ) );
 			return array_map( function( $v ) {
 				return htmlspecialchars( $v, ENT_QUOTES, 'UTF-8', false );
 			}, $value );
