@@ -10,7 +10,7 @@
 	"license-name": "GPL-2.0-or-later",
 	"type": "specialpage",
 	"requires": {
-		"MediaWiki": ">= 1.39"
+		"MediaWiki": ">= 1.40"
 	},
 	"AvailableRights": [
 		"pageexchange"
@@ -19,6 +19,14 @@
 		"sysop": {
 			"pageexchange": true
 		}
+	},
+	"GrantPermissions": {
+		"pageexchange": {
+			"pageexchange": true
+		}
+	},
+	"GrantPermissionGroups": {
+		"pageexchange": "administration"
 	},
 	"Hooks": {
 		"LoadExtensionSchemaUpdates": "PXHooks::describeDBSchema",
@@ -66,7 +74,8 @@
 		"PXUtils": "includes/PXUtils.php",
 		"PXInstallPackageAPI": "includes/api/PXInstallPackageAPI.php",
 		"PXUpdatePackageAPI": "includes/api/PXUpdatePackageAPI.php",
-		"PXUninstallPackageAPI": "includes/api/PXUninstallPackageAPI.php"
+		"PXUninstallPackageAPI": "includes/api/PXUninstallPackageAPI.php",
+		"PXPackagesListAPI": "includes/api/PXPackagesListAPI.php"
 	},
 	"ResourceModules": {
 		"ext.pageexchange": {
@@ -103,6 +112,9 @@
 		"pxinstallpackage": "PXInstallPackageAPI",
 		"pxupdatepackage": "PXUpdatePackageAPI",
 		"pxuninstallpackage": "PXUninstallPackageAPI"
+	},
+	"APIListModules": {
+		"pxpackages": "PXPackagesListAPI"
 	},
 	"manifest_version": 2
 }

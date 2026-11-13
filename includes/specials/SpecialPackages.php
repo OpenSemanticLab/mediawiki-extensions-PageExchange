@@ -52,6 +52,7 @@ class SpecialPackages extends SpecialPage {
 		} elseif ( $packageName !== null ) {
 			$package = null;
 			$this->mInstalledPackages = PXUtils::getInstalledPackages( $user );
+			$this->loadJobCounts();
 			$this->loadAllFiles();
 			foreach ( $this->mInstalledPackages as $installedPackage ) {
 				if ( $installedPackage->getName() == $packageName ) {
@@ -78,10 +79,23 @@ class SpecialPackages extends SpecialPage {
 			}
 		} else {
 			$this->mInstalledPackages = PXUtils::getInstalledPackages( $user );
+			$this->loadJobCounts();
 			$this->loadAllFiles();
 			$text = $this->displayAll();
 		}
 		$out->addHTML( $text );
+	}
+
+	private function loadJobCounts() {
+		$jobCounts = PXUtils::getPackageJobCounts();
+		if ( $jobCounts === null ) {
+			return;
+		}
+		foreach ( $this->mInstalledPackages as $installedPackage ) {
+			$installedPackage->setJobCounts(
+				$jobCounts['packages'][$installedPackage->getGlobalID()] ?? [ 'queued' => 0, 'claimed' => 0, 'failed' => 0 ]
+			);
+		}
 	}
 
 	private function loadAllFiles() {
@@ -125,18 +139,18 @@ class SpecialPackages extends SpecialPage {
 				continue;
 			}
 			$data = json_decode( $json );
-			if ( $data === null || !property_exists( $data, 'packages' ) ) {
+			if ( !is_object( $data ) || !property_exists( $data, 'packages' ) || !( is_object( $data->packages ) || is_array( $data->packages ) ) ) {
 				continue;
 			}
 			foreach ( $data->packages as $pkgData ) {
-				if ( !property_exists( $pkgData, 'directoryStructure' ) ) {
+				if ( !is_object( $pkgData ) || !property_exists( $pkgData, 'directoryStructure' ) ) {
 					continue;
 				}
 				$ds = $pkgData->directoryStructure;
-				if ( !property_exists( $ds, 'service' ) || $ds->service !== 'GitHub' ) {
+				if ( !is_object( $ds ) || !property_exists( $ds, 'service' ) || $ds->service !== 'GitHub' ) {
 					continue;
 				}
-				if ( !property_exists( $ds, 'accountName' ) || !property_exists( $ds, 'repositoryName' ) ) {
+				if ( !property_exists( $ds, 'accountName' ) || !property_exists( $ds, 'repositoryName' ) || !is_string( $ds->accountName ) || !is_string( $ds->repositoryName ) ) {
 					continue;
 				}
 				$gitHubTreeURLs[] = "https://api.github.com/repos/{$ds->accountName}/{$ds->repositoryName}/git/trees/main?recursive=1";
@@ -177,6 +191,11 @@ class SpecialPackages extends SpecialPage {
 				);
 				continue;
 			}
+			foreach ( $packageFile->getPackageErrors() as $packageError ) {
+				$this->getOutput()->addHtml( Html::element( 'div', [ 'class' => 'error' ],
+					"Error in package {$packageError['name']} of file {$packageFile->getURL()}: " . $packageError['error'] )
+				);
+			}
 			foreach ( $packages as $remotePackage ) {
 				$this->loadRemotePackage( $remotePackage );
 			}
@@ -190,7 +209,7 @@ class SpecialPackages extends SpecialPage {
 				$installedPackage->getGlobalID() !== null &&
 				$installedPackage->getGlobalID() == $remotePackage->getGlobalID()
 			) {
-				$installedPackage->setAssociatedRemotePackage( $remotePackage );
+				$installedPackage->offerRemotePackage( $remotePackage );
 				return;
 			}
 		}

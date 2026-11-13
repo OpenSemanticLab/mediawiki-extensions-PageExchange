@@ -196,7 +196,7 @@ class PXPage {
 	 * Create or update a wiki page, and its associated file, if there is
 	 * one.
 	 */
-	public function createOrUpdateWikiPage( $user, $packageName, $isInstall ) {
+	public function createOrUpdateWikiPage( $user, $packageName, $isInstall, $packageID = null ) {
 		// Most of the work - including creating the associated file,
 		// if there is one - is actually done by a job.
 		$editSummaryMsg = $isInstall ? 'pageexchange-installpackage' : 'pageexchange-updatepackage';
@@ -206,7 +206,9 @@ class PXPage {
 		$params = [
 			'page_url' => $this->mURL,
 			'user_id' => $user->getID(),
-			'edit_summary' => $editSummary
+			'edit_summary' => $editSummary,
+			// Lets PXUtils::getPackageJobCounts() attribute the job to its package.
+			'package_id' => $packageID
 		];
 		if ( $this->mNamespace == NS_FILE ) {
 			$params['file_url'] = $this->mFileURL;

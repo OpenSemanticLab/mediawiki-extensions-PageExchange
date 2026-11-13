@@ -31,6 +31,9 @@ use MediaWiki\MediaWikiServices;
  */
 class PXMaintainPackage extends \Maintenance {
 
+	private $mPackageErrors = [];
+	private $mDefiningFiles = [];
+
 	public function __construct() {
 		parent::__construct();
 
@@ -90,6 +93,10 @@ class PXMaintainPackage extends \Maintenance {
 				$package->install( $user );
 				$this->output( "$packageID installed\n" );
 			} catch (Exception $e) {
+				// Only an installed package leads to the update path; report any other failure.
+				if ( !$this->isInstalled( $packageID ) ) {
+					throw $e;
+				}
 				if ($update) {
 					$this->output( "$packageID already installed, run update\n" );
 					/**
@@ -107,6 +114,13 @@ class PXMaintainPackage extends \Maintenance {
 					}
 					if ( $package == null ) {
 						throw new MWException( wfMessage( 'pageexchange-packagenotexists', $packageID ) );
+					}
+					$check = $package->checkUpdateSource( [], $this->mPackageErrors, $this->mDefiningFiles );
+					foreach ( $check['warnings'] as $warning ) {
+						$this->output( wfMessage( $warning[0], ...array_slice( $warning, 1 ) )->text() . "\n" );
+					}
+					if ( $check['error'] !== null ) {
+						$this->fatalError( wfMessage( $check['error'][0], ...array_slice( $check['error'], 1 ) )->text() );
 					}
 					$package->update( $user );
 				}
@@ -141,6 +155,11 @@ class PXMaintainPackage extends \Maintenance {
     /**
      * @see PXInstallPackageAPI
      */
+	private function isInstalled( $packageID ) {
+		$dbr = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_REPLICA );
+		return $dbr->selectField( 'px_packages', 'pxp_id', [ 'pxp_global_id' => $packageID ] ) !== false;
+	}
+
 	private function getRemotePackage( $packageID ) {
 		$dbr = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_REPLICA );
 		$res = $dbr->select(
@@ -159,6 +178,9 @@ class PXMaintainPackage extends \Maintenance {
 		foreach ( $packageFiles as $fileNum => $url ) {
 			$pxFile = PXPackageFile::init( $url, -1, $fileNum + 1, $this->mInstalledExtensions, $installedPackageIDs );
 			$packages = $pxFile->getAllPackages( $this->getUser() );
+			foreach ( $pxFile->getPackageErrors() as $packageError ) {
+				$this->output( "Error in package {$packageError['name']} of file {$pxFile->getURL()}: {$packageError['error']}\n" );
+			}
 			foreach ( $packages as $package ) {
 				if ( $package->getGlobalID() == $packageID ) {
 					return $pxFile->getPackage( $package->getName(), $this->getUser() );
@@ -172,6 +194,9 @@ class PXMaintainPackage extends \Maintenance {
 			foreach ( $curPackageFiles as $fileNum => $packageURL ) {
 				$pxFile = PXPackageFile::init( $packageURL, $dirNum + 1, $fileNum + 1, $this->mInstalledExtensions, $installedPackageIDs );
 				$packages = $pxFile->getAllPackages( $this->getUser() );
+				foreach ( $pxFile->getPackageErrors() as $packageError ) {
+					$this->output( "Error in package {$packageError['name']} of file {$pxFile->getURL()}: {$packageError['error']}\n" );
+				}
 				foreach ( $packages as $package ) {
 					if ( $package->getGlobalID() == $packageID ) {
 						return $pxFile->getPackage( $package->getName(), $this->getUser() );
@@ -206,6 +231,11 @@ class PXMaintainPackage extends \Maintenance {
 
 		foreach ( $pxFiles as $pxFile ) {
 			$packages = $pxFile->getAllPackages( $this->getUser() );
+			foreach ( $pxFile->getPackageErrors() as $packageError ) {
+				$this->output( "Error in package {$packageError['name']} of file {$pxFile->getURL()}: {$packageError['error']}\n" );
+				$packageError['file'] = $pxFile->getURL();
+				$this->mPackageErrors[] = $packageError;
+			}
 			foreach ( $packages as $remotePackage ) {
 				$this->loadRemotePackage( $remotePackage );
 			}
@@ -222,7 +252,11 @@ class PXMaintainPackage extends \Maintenance {
 				$installedPackage->getGlobalID() !== null &&
 				$installedPackage->getGlobalID() == $remotePackage->getGlobalID()
 			) {
-				$installedPackage->setAssociatedRemotePackage( $remotePackage );
+				$definingFiles = $this->mDefiningFiles[$remotePackage->getGlobalID()] ?? [];
+				if ( !in_array( $remotePackage->getPackageFileURL(), $definingFiles, true ) ) {
+					$this->mDefiningFiles[$remotePackage->getGlobalID()][] = $remotePackage->getPackageFileURL();
+				}
+				$installedPackage->offerRemotePackage( $remotePackage );
 				return;
 			}
 		}

@@ -4,6 +4,9 @@ class PXUpdatePackageAPI extends ApiBase {
 
 	private $mInstalledExtensions = [];
 	private $mInstalledPackages = [];
+	private $mFailedFiles = [];
+	private $mPackageErrors = [];
+	private $mDefiningFiles = [];
 
 	public function __construct( $query, $moduleName ) {
 		parent::__construct( $query, $moduleName );
@@ -15,7 +18,7 @@ class PXUpdatePackageAPI extends ApiBase {
 		$user = $this->getUser();
 
 		if ( $packageID == null ) {
-			throw new MWException( wfMessage( 'pageexchange-packageidnull' ) );
+			$this->dieWithError( 'pageexchange-packageidnull', 'packageidnull' );
 		}
 
 		$this->mInstalledExtensions = PXUtils::getInstalledExtensions( $this->getConfig() );
@@ -29,7 +32,14 @@ class PXUpdatePackageAPI extends ApiBase {
 			}
 		}
 		if ( $package == null ) {
-			throw new MWException( wfMessage( 'pageexchange-packagenotexists', $packageID ) );
+			$this->dieWithError( [ 'pageexchange-packagenotexists', $packageID ], 'packagenotexists' );
+		}
+		$check = $package->checkUpdateSource( $this->mFailedFiles, $this->mPackageErrors, $this->mDefiningFiles );
+		foreach ( $check['warnings'] as $warning ) {
+			$this->addWarning( $warning );
+		}
+		if ( $check['error'] !== null ) {
+			$this->dieWithError( $check['error'], $check['code'] );
 		}
 		$package->update( $user );
 	}
@@ -43,19 +53,40 @@ class PXUpdatePackageAPI extends ApiBase {
 
 		$packageFileURLs = $this->getConfig()->get( 'PageExchangePackageFiles' );
 		foreach ( $packageFileURLs as $i => $url ) {
-			$pxFiles[] = PXPackageFile::init( $url, -1, $i + 1, $this->mInstalledExtensions, $installedPackageIDs );
+			try {
+				$pxFiles[] = PXPackageFile::init( $url, -1, $i + 1, $this->mInstalledExtensions, $installedPackageIDs );
+			} catch ( MWException $e ) {
+				$this->mFailedFiles[] = $url;
+				$this->addWarning( [ 'pageexchange-packagefileerror', $url, $e->getMessage() ] );
+			}
 		}
 
 		$fileDirectories = $this->getConfig()->get( 'PageExchangeFileDirectories' );
 		foreach ( $fileDirectories as $dirNum => $fileDirectoryURL ) {
 			$curPackageFiles = PXUtils::readFileDirectory( $fileDirectoryURL );
 			foreach ( $curPackageFiles as $fileNum => $packageURL ) {
-				$pxFiles[] = PXPackageFile::init( $packageURL, $dirNum + 1, $fileNum + 1, $this->mInstalledExtensions, $installedPackageIDs );
+				try {
+					$pxFiles[] = PXPackageFile::init( $packageURL, $dirNum + 1, $fileNum + 1, $this->mInstalledExtensions, $installedPackageIDs );
+				} catch ( MWException $e ) {
+					$this->mFailedFiles[] = $packageURL;
+					$this->addWarning( [ 'pageexchange-packagefileerror', $packageURL, $e->getMessage() ] );
+				}
 			}
 		}
 
 		foreach ( $pxFiles as $pxFile ) {
-			$packages = $pxFile->getAllPackages( $this->getUser() );
+			try {
+				$packages = $pxFile->getAllPackages( $this->getUser() );
+			} catch ( MWException $e ) {
+				$this->mFailedFiles[] = $pxFile->getURL();
+				$this->addWarning( [ 'pageexchange-packagefileerror', $pxFile->getURL(), $e->getMessage() ] );
+				continue;
+			}
+			foreach ( $pxFile->getPackageErrors() as $packageError ) {
+				$packageError['file'] = $pxFile->getURL();
+				$this->mPackageErrors[] = $packageError;
+				$this->addWarning( [ 'pageexchange-packageerror', $packageError['name'], $pxFile->getURL(), $packageError['error'] ] );
+			}
 			foreach ( $packages as $remotePackage ) {
 				$this->loadRemotePackage( $remotePackage );
 			}
@@ -69,7 +100,11 @@ class PXUpdatePackageAPI extends ApiBase {
 				$installedPackage->getGlobalID() !== null &&
 				$installedPackage->getGlobalID() == $remotePackage->getGlobalID()
 			) {
-				$installedPackage->setAssociatedRemotePackage( $remotePackage );
+				$definingFiles = $this->mDefiningFiles[$remotePackage->getGlobalID()] ?? [];
+				if ( !in_array( $remotePackage->getPackageFileURL(), $definingFiles, true ) ) {
+					$this->mDefiningFiles[$remotePackage->getGlobalID()][] = $remotePackage->getPackageFileURL();
+				}
+				$installedPackage->offerRemotePackage( $remotePackage );
 				return;
 			}
 		}
